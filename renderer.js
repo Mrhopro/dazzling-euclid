@@ -2595,8 +2595,19 @@
       }
     });
 
-    function calculateGcd(a, b) {
-      return     async function handleMetadataFile(file) {
+    let activeFilePath = null;
+
+    const metadataStegoPanel = document.getElementById('metadata-stego-panel');
+    const metadataStegoScanBtn = document.getElementById('metadata-stego-scan-btn');
+    const metadataStegoResults = document.getElementById('metadata-stego-results');
+    const metadataStegoEofStatus = document.getElementById('metadata-stego-eof-status');
+    const metadataStegoFilesList = document.getElementById('metadata-stego-files-list');
+    const metadataStegoStringsVal = document.getElementById('metadata-stego-strings-val');
+
+    async function handleMetadataFile(file) {
+      // Store active file path for stego scanning
+      activeFilePath = file.path;
+
       // Reset displays
       metadataFilenameVal.textContent = '-';
       metadataFilesizeVal.textContent = '-';
@@ -2607,6 +2618,17 @@
       metadataDimensionsVal.textContent = '-';
       metadataAspectVal.textContent = '-';
       metadataGeometrySection.classList.add('hidden');
+
+      // Reset stego panel UI state
+      metadataStegoPanel.classList.remove('hidden');
+      metadataStegoScanBtn.classList.remove('hidden');
+      metadataStegoScanBtn.disabled = false;
+      metadataStegoScanBtn.textContent = 'Run Deep Stego Scan';
+      metadataStegoResults.classList.add('hidden');
+      metadataStegoEofStatus.className = 'p-3 rounded border font-mono text-xs';
+      metadataStegoEofStatus.textContent = '-';
+      metadataStegoFilesList.innerHTML = '<li class="text-slate-500 italic">No embedded file signatures detected</li>';
+      metadataStegoStringsVal.textContent = 'Waiting for scan initiation...';
 
       // Update filename badge in dropzone
       metadataLoadedFilename.textContent = file.name;
@@ -2637,6 +2659,181 @@
         metadataTypeVal.textContent = "Analysis Failed: " + err.message;
       }
     }
+
+    metadataStegoScanBtn.addEventListener('click', async () => {
+      if (!activeFilePath) return;
+
+      metadataStegoScanBtn.disabled = true;
+      metadataStegoScanBtn.textContent = 'Scanning...';
+      metadataStegoResults.classList.remove('hidden');
+
+      metadataStegoEofStatus.className = 'p-3 rounded border border-cyberCyan/20 bg-cyberCyan/5 text-cyberCyan animate-pulse';
+      metadataStegoEofStatus.textContent = 'Analyzing file structure for EOF overlays...';
+      metadataStegoFilesList.innerHTML = '<li class="text-slate-400 italic animate-pulse">Scanning binary offsets for magic bytes...</li>';
+      metadataStegoStringsVal.textContent = 'Extracting ASCII string sequences...';
+
+      try {
+        const result = await window.api.scanSteganography(activeFilePath);
+        
+        if (result.success) {
+          metadataStegoScanBtn.textContent = 'Scan Complete';
+
+          // A. EOF Overlay rendering
+          if (result.eofOverlay.detected) {
+            metadataStegoEofStatus.className = 'p-3 rounded border border-cyberMagenta/30 bg-cyberMagenta/10 text-cyberMagenta shadow-[0_0_15px_rgba(255,0,127,0.15)]';
+            metadataStegoEofStatus.innerHTML = `
+              <div class="font-bold text-sm tracking-wide mb-1">PAYLOAD OVERLAY DETECTED!</div>
+              <div>Appended data exists past the structural EOF boundary.</div>
+              <div class="mt-2 text-[10px] text-slate-400">Offset: <span class="text-white">${result.eofOverlay.offset}</span> | Size: <span class="text-white">${result.eofOverlay.payloadSize} bytes</span> | Type: <span class="text-white uppercase">${result.eofOverlay.payloadType}</span></div>
+              <div class="mt-3">
+                <span class="text-[9px] uppercase text-slate-500 block mb-1">Payload Content/Hex:</span>
+                <pre class="bg-black/40 border border-cyberMagenta/20 text-cyberMagenta p-2 rounded text-[10px] whitespace-pre-wrap max-h-32 overflow-y-auto break-all font-mono">${escapeHTML(result.eofOverlay.payloadPreview)}</pre>
+              </div>
+            `;
+          } else {
+            metadataStegoEofStatus.className = 'p-3 rounded border border-cyberGreen/30 bg-cyberGreen/10 text-cyberGreen shadow-[0_0_15px_rgba(57,255,20,0.15)]';
+            metadataStegoEofStatus.innerHTML = `
+              <div class="font-bold text-sm tracking-wide">EOF STATUS CLEAR</div>
+              <div class="mt-1 text-slate-400">No appended data payload found past standard file headers.</div>
+            `;
+          }
+
+          // B. Embedded files rendering
+          if (result.embeddedFiles.length > 0) {
+            metadataStegoFilesList.innerHTML = '';
+            result.embeddedFiles.forEach(fileInfo => {
+              const li = document.createElement('li');
+              li.className = 'text-cyberMagenta font-semibold flex items-center gap-2';
+              li.innerHTML = `
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-cyberMagenta shadow-[0_0_5px_#ff007f]"></span>
+                <span>${escapeHTML(fileInfo.message)}</span>
+              `;
+              metadataStegoFilesList.appendChild(li);
+            });
+          } else {
+            metadataStegoFilesList.innerHTML = '<li class="text-cyberGreen font-semibold">No nested signature matches (ZIP/PDF) detected.</li>';
+          }
+
+          // C. Extracted strings rendering
+          if (result.extractedStrings.length > 0) {
+            metadataStegoStringsVal.textContent = result.extractedStrings.join('\n');
+          } else {
+            metadataStegoStringsVal.textContent = 'No printable ASCII string sequences matching rules were found.';
+          }
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err) {
+        console.error('Steganography scan failed:', err);
+        metadataStegoEofStatus.className = 'p-3 rounded border border-red-500/30 bg-red-500/10 text-red-400';
+        metadataStegoEofStatus.textContent = 'Scan failed: ' + err.message;
+        metadataStegoFilesList.innerHTML = '<li class="text-red-400">Error executing signature scan</li>';
+        metadataStegoStringsVal.textContent = 'Error: ' + err.message;
+        metadataStegoScanBtn.textContent = 'Scan Failed';
+      }
+    });
+    // ==========================================
+    // OUTGUESS DECODER MODULE
+    // ==========================================
+    const outguessDropzone = document.getElementById('outguess-dropzone');
+    const outguessFileInput = document.getElementById('outguess-file-input');
+    const outguessLoadedFilename = document.getElementById('outguess-loaded-filename');
+    const outguessKeyInput = document.getElementById('outguess-key');
+    const outguessExecuteBtn = document.getElementById('outguess-execute-btn');
+    const outguessTerminal = document.getElementById('outguess-terminal');
+    
+    let activeOutguessFilePath = null;
+
+    // Drag-and-drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      outguessDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      outguessDropzone.addEventListener(eventName, () => {
+        outguessDropzone.classList.remove('border-cyberBorder');
+        outguessDropzone.classList.add('border-cyberMagenta', 'shadow-[0_0_10px_#ff007f]');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      outguessDropzone.addEventListener(eventName, () => {
+        outguessDropzone.classList.add('border-cyberBorder');
+        outguessDropzone.classList.remove('border-cyberMagenta', 'shadow-[0_0_10px_#ff007f]');
+      }, false);
+    });
+
+    outguessDropzone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) handleOutguessFile(file);
+    });
+
+    outguessFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleOutguessFile(file);
+    });
+
+    function handleOutguessFile(file) {
+      const isJpeg = file.type === 'image/jpeg' || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+      if (!isJpeg) {
+        outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-red-500 whitespace-pre-wrap select-text';
+        outguessTerminal.textContent = 'ERROR: OutGuess steganography is designed only for JPEG images (.jpg or .jpeg).';
+        activeOutguessFilePath = null;
+        outguessLoadedFilename.classList.add('hidden');
+        return;
+      }
+
+      activeOutguessFilePath = file.path;
+      outguessLoadedFilename.textContent = file.name;
+      outguessLoadedFilename.classList.remove('hidden');
+      
+      outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-cyberGreen/90 whitespace-pre-wrap select-text';
+      outguessTerminal.textContent = `Target image locked: ${file.name}\nEnter stego key (if any), then click Execute...`;
+      outguessExecuteBtn.textContent = 'Execute OutGuess Extraction';
+    }
+
+    outguessExecuteBtn.addEventListener('click', async () => {
+      if (!activeOutguessFilePath) {
+        outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-red-500 whitespace-pre-wrap select-text';
+        outguessTerminal.textContent = 'ERROR: No stego JPEG loaded. Please drop a valid JPEG file first.';
+        return;
+      }
+
+      outguessExecuteBtn.disabled = true;
+      outguessExecuteBtn.textContent = 'Extracting...';
+      outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-cyberCyan whitespace-pre-wrap select-text animate-pulse';
+      outguessTerminal.textContent = 'OutGuess extraction initialized. Spawning background binary process...\nPerforming discrete coefficient analysis...';
+
+      const key = outguessKeyInput.value.trim();
+
+      try {
+        const result = await window.api.runOutguess(activeOutguessFilePath, key);
+        outguessExecuteBtn.disabled = false;
+
+        if (result.success) {
+          outguessExecuteBtn.textContent = 'Extraction Succeeded';
+          outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-cyberGreen/90 whitespace-pre-wrap select-text';
+          
+          let terminalOutput = '';
+          if (result.stderr) {
+            terminalOutput += `[Process Log]:\n${result.stderr}\n\n`;
+          }
+          terminalOutput += `[Extracted Data Payload]:\n${result.data || '[Empty payload or non-text content]'}`;
+          outguessTerminal.textContent = terminalOutput;
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err) {
+        outguessExecuteBtn.disabled = false;
+        outguessExecuteBtn.textContent = 'Extraction Failed';
+        outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-red-500 whitespace-pre-wrap select-text';
+        outguessTerminal.textContent = `OutGuess process failed:\n${err.message}`;
+      }
+    });
+
     // ==========================================
     // GLOBAL UTILITIES (CLIPBOARD COPY)
     // ==========================================
@@ -2664,4 +2861,4 @@
         }
       });
     });
-    }
+    

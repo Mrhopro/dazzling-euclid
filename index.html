@@ -1292,53 +1292,132 @@
           </div>
 
           <!-- Right 2 Columns: Outputs -->
-          <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- A. System Metadata Panel -->
-            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-cyan-glow/5">
-              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">System Metadata</h2>
-              <div class="space-y-4 font-mono text-xs text-slate-300">
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">File Name:</span>
-                  <span id="metadata-filename-val" class="text-white break-all">-</span>
+          <div class="lg:col-span-2 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- A. System Metadata Panel -->
+              <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-cyan-glow/5">
+                <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">System Metadata</h2>
+                <div class="space-y-4 font-mono text-xs text-slate-300">
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">File Name:</span>
+                    <span id="metadata-filename-val" class="text-white break-all">-</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">File Size:</span>
+                    <span id="metadata-filesize-val" class="text-white">-</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Declared MIME Type:</span>
+                    <span id="metadata-mime-val" class="text-white break-all">-</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Last Modified:</span>
+                    <span id="metadata-modified-val" class="text-white">-</span>
+                  </div>
                 </div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">File Size:</span>
-                  <span id="metadata-filesize-val" class="text-white">-</span>
-                </div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">Declared MIME Type:</span>
-                  <span id="metadata-mime-val" class="text-white break-all">-</span>
-                </div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">Last Modified:</span>
-                  <span id="metadata-modified-val" class="text-white">-</span>
+              </div>
+
+              <!-- B. Deep Binary/Geometry Panel -->
+              <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
+                <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Binary & Geometry Analysis</h2>
+                <div class="space-y-4 font-mono text-xs text-slate-300">
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Magic Bytes (Hex Signature):</span>
+                    <span id="metadata-hex-val" class="text-cyberCyan font-bold tracking-widest break-all">-</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Verified File Type:</span>
+                    <span id="metadata-type-val" class="text-cyberMagenta font-bold uppercase">-</span>
+                  </div>
+                  
+                  <!-- Image Geometry Section (hidden by default) -->
+                  <div id="metadata-geometry-section" class="hidden space-y-4 pt-2 border-t border-cyberBorder/30">
+                    <div class="flex flex-col gap-1">
+                      <span class="text-slate-500 uppercase text-[10px]">Dimensions (Width × Height):</span>
+                      <span id="metadata-dimensions-val" class="text-white">-</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-slate-500 uppercase text-[10px]">Aspect Ratio:</span>
+                      <span id="metadata-aspect-val" class="text-white font-bold">-</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- B. Deep Binary/Geometry Panel -->
-            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
-              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Binary & Geometry Analysis</h2>
-              <div class="space-y-4 font-mono text-xs text-slate-300">
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">Magic Bytes (Hex Signature):</span>
-                  <span id="metadata-hex-val" class="text-cyberCyan font-bold tracking-widest break-all">-</span>
+            <!-- C. Steganalysis & Payload Scanner Panel (hidden initially, shown when a file is loaded) -->
+            <div id="metadata-stego-panel" class="hidden bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
+              <div class="flex justify-between items-center border-b border-cyberBorder pb-2">
+                <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Steganalysis & Payload Scanner</h2>
+                <button id="metadata-stego-scan-btn" class="px-3 py-1 bg-cyberMagenta/10 text-cyberMagenta border border-cyberMagenta/20 hover:bg-cyberMagenta/20 hover:border-cyberMagenta rounded font-mono text-[10px] uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(255,0,127,0.1)]">
+                  Run Deep Stego Scan
+                </button>
+              </div>
+              
+              <div id="metadata-stego-results" class="hidden space-y-4 font-mono text-xs">
+                <!-- EOF Overlay Section -->
+                <div class="flex flex-col gap-2">
+                  <span class="text-slate-500 uppercase text-[10px]">EOF Overlay Status:</span>
+                  <div id="metadata-stego-eof-status" class="p-3 rounded border font-mono text-xs">-</div>
                 </div>
-                <div class="flex flex-col gap-1">
-                  <span class="text-slate-500 uppercase text-[10px]">Verified File Type:</span>
-                  <span id="metadata-type-val" class="text-cyberMagenta font-bold uppercase">-</span>
+
+                <!-- Embedded Files / Polyglots -->
+                <div class="flex flex-col gap-2">
+                  <span class="text-slate-500 uppercase text-[10px]">Embedded Files / Polyglots:</span>
+                  <ul id="metadata-stego-files-list" class="list-disc list-inside text-slate-300 space-y-1 bg-[#0c101b]/50 border border-cyberBorder rounded p-3">
+                    <li class="text-slate-500 italic">No embedded file signatures detected</li>
+                  </ul>
                 </div>
-                
-                <!-- Image Geometry Section (hidden by default) -->
-                <div id="metadata-geometry-section" class="hidden space-y-4 pt-2 border-t border-cyberBorder/30">
-                  <div class="flex flex-col gap-1">
-                    <span class="text-slate-500 uppercase text-[10px]">Dimensions (Width × Height):</span>
-                    <span id="metadata-dimensions-val" class="text-white">-</span>
+
+                <!-- Extracted Strings Terminal -->
+                <div class="flex flex-col gap-2">
+                  <span class="text-slate-500 uppercase text-[10px]">Extracted Strings (Printable ASCII, Capped at First 10MB):</span>
+                  <div class="relative bg-black border border-cyberBorder rounded p-3">
+                    <div class="absolute top-2 right-3 text-[9px] uppercase text-cyberGreen/40 font-mono tracking-widest pointer-events-none">TTY_STRINGS</div>
+                    <pre id="metadata-stego-strings-val" class="h-48 overflow-y-auto font-mono text-xs text-cyberGreen/90 whitespace-pre-wrap select-text selection:bg-cyberGreen/20 focus:outline-none">Waiting for scan initiation...</pre>
                   </div>
-                  <div class="flex flex-col gap-1">
-                    <span class="text-slate-500 uppercase text-[10px]">Aspect Ratio:</span>
-                    <span id="metadata-aspect-val" class="text-white font-bold">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- D. OutGuess Stego Decoder Panel -->
+            <div id="metadata-outguess-panel" class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">OutGuess Stego Decoder</h2>
+              
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Dropzone for JPEG -->
+                <div class="md:col-span-1">
+                  <label id="outguess-dropzone" for="outguess-file-input" class="block border border-dashed border-cyberBorder hover:border-cyberMagenta/60 bg-cyberPanel rounded-lg p-5 text-center cursor-pointer transition relative h-full flex flex-col items-center justify-center min-h-[140px]">
+                    <input type="file" id="outguess-file-input" class="hidden" accept="image/jpeg,image/jpg">
+                    <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                      <svg class="w-8 h-8 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                      <p class="text-[10px] font-mono text-slate-300 pointer-events-none">DRAG & DROP STEGO JPEG</p>
+                      <div id="outguess-loaded-filename" class="hidden text-[9px] uppercase font-mono text-cyberMagenta border border-cyberMagenta/30 px-2 py-0.5 bg-cyberMagenta/10 rounded-full mt-1 pointer-events-none break-all max-w-[150px]">
+                        NO FILE LOADED
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Controls & Key input -->
+                <div class="md:col-span-2 flex flex-col gap-3 justify-center">
+                  <div class="flex flex-col gap-1.5">
+                    <label for="outguess-key" class="text-[9px] uppercase font-mono tracking-wider text-slate-500">Secret Key / Password</label>
+                    <input type="text" id="outguess-key" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded px-3 py-2 font-mono text-xs focus:outline-none focus:border-cyberMagenta transition-all" placeholder="Enter stego key if encrypted...">
                   </div>
+                  
+                  <button id="outguess-execute-btn" class="w-full py-2.5 border border-cyberMagenta text-cyberMagenta font-mono text-xs uppercase tracking-wider rounded bg-cyberMagenta/10 hover:bg-cyberMagenta/20 transition-all flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(255,0,127,0.15)]">
+                    Execute OutGuess Extraction
+                  </button>
+                </div>
+              </div>
+
+              <!-- Monospace scrollable output terminal -->
+              <div class="flex flex-col gap-2 mt-2">
+                <span class="text-slate-500 uppercase text-[10px]">OutGuess Output Stream:</span>
+                <div class="relative bg-black border border-cyberBorder rounded p-3">
+                  <div class="absolute top-2 right-3 text-[9px] uppercase text-cyberGreen/40 font-mono tracking-widest pointer-events-none">TTY_OUTGUESS</div>
+                  <pre id="outguess-terminal" class="h-32 overflow-y-auto font-mono text-xs text-cyberGreen/90 whitespace-pre-wrap select-text selection:bg-cyberGreen/20 focus:outline-none">System offline. Load a stego JPEG and click Execute...</pre>
                 </div>
               </div>
             </div>

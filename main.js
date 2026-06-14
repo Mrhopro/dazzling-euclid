@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
+const os = require('os');
 
 let mainWindow;
 
@@ -386,4 +388,227 @@ ipcMain.handle('process-morse-frame', (event, data) => {
     ledOn,
     signalStream: morseState.morseSignalStream
   };
+});
+
+// ==========================================
+// 4. STEGANALYSIS & PAYLOAD SCANNER BACKEND
+// ==========================================
+
+function isReadableAscii(str) {
+  if (!str) return false;
+  let printableCount = 0;
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if ((code >= 32 && code <= 126) || code === 10 || code === 13 || code === 9) {
+      printableCount++;
+    }
+  }
+  return (printableCount / str.length) >= 0.85;
+}
+
+ipcMain.handle('scan-steganography', async (event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      throw new Error('File does not exist');
+    }
+
+    const buffer = fs.readFileSync(filePath);
+    const result = {
+      success: true,
+      eofOverlay: {
+        detected: false,
+        offset: 0,
+        payloadSize: 0,
+        payloadType: 'none', // 'text', 'binary', 'none'
+        payloadPreview: ''
+      },
+      embeddedFiles: [], // Array of { type, offset, message }
+      extractedStrings: [] // Array of strings
+    };
+
+    // --- A. EOF Overlay Detection ---
+    let lastMarkerIdx = -1;
+    let markerLength = 0;
+    
+    // Check if the file starts with JPEG marker
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+      const jpegMarker = Buffer.from([0xFF, 0xD9]);
+      lastMarkerIdx = buffer.lastIndexOf(jpegMarker);
+      markerLength = 2;
+    } 
+    // Check if PNG
+    else if (buffer.length >= 8 && buffer.readUInt32BE(0) === 0x89504E47) {
+      const pngMarker = Buffer.from([0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]);
+      lastMarkerIdx = buffer.lastIndexOf(pngMarker);
+      markerLength = 8;
+    }
+
+    if (lastMarkerIdx !== -1 && lastMarkerIdx + markerLength < buffer.length) {
+      const payloadOffset = lastMarkerIdx + markerLength;
+      const payloadSize = buffer.length - payloadOffset;
+      const payloadBuffer = buffer.subarray(payloadOffset);
+
+      result.eofOverlay.detected = true;
+      result.eofOverlay.offset = payloadOffset;
+      result.eofOverlay.payloadSize = payloadSize;
+
+      const payloadStr = payloadBuffer.toString('utf8');
+      if (isReadableAscii(payloadStr)) {
+        result.eofOverlay.payloadType = 'text';
+        result.eofOverlay.payloadPreview = payloadStr;
+      } else {
+        result.eofOverlay.payloadType = 'binary';
+        // Format HEX preview (up to 256 bytes)
+        const hexLen = Math.min(payloadBuffer.length, 256);
+        let hexStr = '';
+        for (let i = 0; i < hexLen; i++) {
+          hexStr += payloadBuffer[i].toString(16).padStart(2, '0').toUpperCase() + ' ';
+        }
+        if (payloadBuffer.length > 256) {
+          hexStr += '...';
+        }
+        result.eofOverlay.payloadPreview = hexStr.trim();
+      }
+    }
+
+    // --- B. Embedded File Signature Scanner ---
+    const zipMarker = Buffer.from([0x50, 0x4B, 0x03, 0x04]);
+    const pdfMarker = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+
+    // Search ZIP
+    let zipOffset = 4;
+    while (zipOffset < buffer.length - 4) {
+      const idx = buffer.indexOf(zipMarker, zipOffset);
+      if (idx === -1) break;
+      result.embeddedFiles.push({
+        type: 'ZIP Archive',
+        offset: idx,
+        message: `Hidden ZIP archive detected at byte offset ${idx}`
+      });
+      zipOffset = idx + 4;
+    }
+
+    // Search PDF
+    let pdfOffset = 4;
+    while (pdfOffset < buffer.length - 4) {
+      const idx = buffer.indexOf(pdfMarker, pdfOffset);
+      if (idx === -1) break;
+      result.embeddedFiles.push({
+        type: 'PDF Document',
+        offset: idx,
+        message: `Hidden PDF document detected at byte offset ${idx}`
+      });
+      pdfOffset = idx + 4;
+    }
+
+    // --- C. ASCII Strings Extractor ---
+    const scanLimit = Math.min(buffer.length, 10 * 1024 * 1024);
+    let currentSegment = [];
+
+    for (let i = 0; i < scanLimit; i++) {
+      const byte = buffer[i];
+      const isPrintable = (byte >= 32 && byte <= 126) || byte === 10 || byte === 13 || byte === 9;
+      
+      if (isPrintable) {
+        currentSegment.push(String.fromCharCode(byte));
+      } else {
+        if (currentSegment.length >= 4) {
+          result.extractedStrings.push(currentSegment.join(''));
+          if (result.extractedStrings.length >= 2000) {
+            break;
+          }
+        }
+        currentSegment = [];
+      }
+    }
+    if (currentSegment.length >= 4 && result.extractedStrings.length < 2000) {
+      result.extractedStrings.push(currentSegment.join(''));
+    }
+
+    result.extractedStrings = result.extractedStrings.slice(0, 200);
+
+    return result;
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+});
+
+// ==========================================
+// 5. OUTGUESS STEGO DECODER BACKEND
+// ==========================================
+
+ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
+  return new Promise((resolve) => {
+    try {
+      if (!fs.existsSync(filePath)) {
+        return resolve({ success: false, error: 'Target file does not exist.' });
+      }
+
+      const binDirPath = path.join(__dirname, 'bin');
+      const isWindows = process.platform === 'win32';
+      const binaryName = isWindows ? 'outguess.exe' : 'outguess';
+      const binaryPath = path.join(binDirPath, binaryName);
+
+      if (!fs.existsSync(binaryPath)) {
+        return resolve({ success: false, error: `OutGuess binary not found at ${binaryPath}` });
+      }
+
+      // Generate a temporary destination file in the OS temp directory
+      const tempOutputPath = path.join(os.tmpdir(), `outguess_extracted_${Date.now()}.txt`);
+
+      // Prepare arguments
+      const args = [];
+      if (stegoKey) {
+        args.push('-k', stegoKey);
+      }
+      args.push('-r', filePath, tempOutputPath);
+
+      console.log(`Executing OutGuess: ${binaryPath} ${args.join(' ')} (CWD: ${binDirPath})`);
+
+      execFile(binaryPath, args, { cwd: binDirPath }, (error, stdout, stderr) => {
+        let extractedData = '';
+        let fileReadError = null;
+
+        try {
+          if (fs.existsSync(tempOutputPath)) {
+            extractedData = fs.readFileSync(tempOutputPath, 'utf8');
+            fs.unlinkSync(tempOutputPath);
+          }
+        } catch (e) {
+          fileReadError = e;
+        }
+
+        if (error) {
+          console.error('OutGuess execution failed:', error, stderr);
+          const errorMsg = stderr ? stderr.toString().trim() : error.message;
+          return resolve({
+            success: false,
+            error: `OutGuess failed: ${errorMsg}`
+          });
+        }
+
+        if (fileReadError) {
+          return resolve({
+            success: false,
+            error: `OutGuess succeeded but output file read failed: ${fileReadError.message}`
+          });
+        }
+
+        resolve({
+          success: true,
+          data: extractedData,
+          stdout: stdout,
+          stderr: stderr
+        });
+      });
+    } catch (err) {
+      resolve({
+        success: false,
+        error: `OutGuess handler error: ${err.message}`
+      });
+    }
+  });
 });
