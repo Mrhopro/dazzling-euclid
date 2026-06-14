@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-cyberBg">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYPHER_CORE // Crypto & Code Multitool</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind Custom Config -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberBg: '#060913',
+            cyberPanel: '#0e1424',
+            cyberPanelLight: '#182038',
+            cyberCyan: '#00f0ff',
+            cyberMagenta: '#ff007f',
+            cyberGreen: '#39ff14',
+            cyberBorder: '#1e293b',
+            cyberBorderLight: '#334155',
+          },
+          fontFamily: {
+            sans: ['Space Grotesk', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Cyberpunk styling -->
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060913;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f0ff;
+    }
+
+    /* Grid background */
+    .bg-grid {
+      background-image: linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    /* Cyber scanlines overlay */
+    .scanlines {
+      position: relative;
+      overflow: hidden;
+    }
+    .scanlines::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+      background-size: 100% 4px;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    /* Glow utilities */
+    .shadow-cyan-glow {
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+    }
+    .shadow-magenta-glow {
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.25);
+    }
+    .shadow-green-glow {
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.25);
+    }
+
+    /* Tab button active state */
+    .tab-btn-active {
+      background: rgba(0, 240, 255, 0.08);
+      border-left: 4px solid #00f0ff;
+      color: #00f0ff !important;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+
+    /* CSS Animations */
+    @keyframes pulse-green {
+      0%, 100% { opacity: 0.6; box-shadow: 0 0 4px rgba(57, 255, 20, 0.4); }
+      50% { opacity: 1; box-shadow: 0 0 12px rgba(57, 255, 20, 0.8); }
+    }
+    .pulse-green-led {
+      animation: pulse-green 2s infinite;
+    }
+
+    /* Range slider custom styles */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #00f0ff;
+      border: 2px solid #060913;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00f0ff;
+      transition: all 0.1s ease-in-out;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ff007f;
+      box-shadow: 0 0 12px #ff007f;
+    }
+  </style>
+</head>
+<body class="bg-cyberBg text-slate-200 font-sans h-full flex flex-col md:flex-row overflow-hidden bg-grid scanlines">
+
+  <!-- Mobile Menu Bar -->
+  <header class="md:hidden flex items-center justify-between p-4 bg-cyberPanel border-b border-cyberBorder z-40">
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-cyberGreen pulse-green-led"></div>
+      <span class="font-mono text-sm tracking-widest text-cyberCyan font-bold">CYPHER_CORE //</span>
+    </div>
+    <button id="mobile-menu-toggle" class="text-slate-400 hover:text-cyberCyan transition focus:outline-none">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path id="menu-icon-path" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Sidebar Container -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-350 ease-in-out md:static flex flex-col w-64 h-full bg-cyberPanel border-r border-cyberBorder z-30 shrink-0">
+    <!-- Sidebar Header -->
+    <div class="hidden md:flex items-center justify-between p-6 border-b border-cyberBorder">
+      <div class="flex flex-col gap-1">
+        <span class="font-mono text-sm tracking-widest text-cyberCyan font-bold">CYPHER_CORE v1.0.4</span>
+        <div class="flex items-center gap-2 mt-1">
+          <div class="w-2 h-2 rounded-full bg-cyberGreen pulse-green-led"></div>
+          <span class="text-[10px] text-slate-400 font-mono">SECURE HOST // ONLINE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="magic">
+        <span>Magic Decode</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="base64">
+        <span>Base64 & URL Coder</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="caesar">
+        <span>Caesar Cipher</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="vigenere">
+        <span>Vigenère & A1Z26</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="morse">
+        <span class="text-lg">⠠⠵</span>
+        <span>Morse Coder</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="hex">
+        <span>HEX Coder</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="binary">
+        <span>Binary Coder</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="visualizer">
+        <span>Audio Visualizer</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="xor">
+        <span>XOR Cipher</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="jwt">
+        <span>JWT Decoder</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="hasher">
+        <span>File Hasher</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="stego">
+        <span>Image Stego</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="barline">
+        <span>Barline Cipher</span>
+      </button>
+      <button class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-slate-400 font-mono text-sm text-left rounded border-l-4 border-transparent hover:bg-slate-800/40 hover:text-slate-200 transition-all" data-tab="metadata">
+        <span>Metadata Analyzer</span>
+      </button>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="p-6 border-t border-cyberBorder text-center">
+      <span class="text-[9px] font-mono text-slate-500">ENCRYPTION TERMINAL DEVICE</span>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div id="mobile-overlay" class="hidden fixed inset-0 bg-black/60 z-20 md:hidden"></div>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden">
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+
+      <!-- ==================== 1. TAB: MAGIC DECODE ==================== -->
+      <section id="tab-content-magic" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            MAGIC DECODE <span class="text-xs font-normal text-slate-400 font-mono border border-cyberCyan/30 px-2 py-0.5 rounded">AUTO-DETECTOR</span>
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Input encoded text here. The detector uses real-time heuristic scanning to identify Base64, HEX, Binary, Morse, or URL encodings and offers instant decoding with tab navigation.
+          </p>
+        </div>
+
+        <!-- Tool panel -->
+        <div class="grid grid-cols-1 gap-6">
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-cyan-glow/5">
+            <div class="relative">
+              <label for="magic-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">RAW ENCODED INPUT</label>
+              <textarea id="magic-input" rows="6" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Paste encoded characters, e.g. 01001000 01000101 or SGVsbG8sIHdvcmxkIQ== or 48656c6c6f..."></textarea>
+            </div>
+
+            <!-- Auto-Detection Results -->
+            <div class="space-y-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400 block">DETECTION RESULTS</span>
+              <div id="magic-results-container" class="space-y-3">
+                <div class="border border-dashed border-cyberBorder p-8 text-center rounded text-slate-500 font-mono text-sm">
+                  Waiting for input data...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 2. TAB: BASE64 & URL CODER ==================== -->
+      <section id="tab-content-base64" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            BASE64 & URL CODER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Encode standard text strings into Base64 formats or URL encoded sequences, or decode them back to plain ASCII/UTF-8.
+          </p>
+        </div>
+
+        <!-- Mode Pills -->
+        <div class="flex gap-2 p-1 bg-cyberPanel border border-cyberBorder rounded w-fit">
+          <button id="b64-subtab-base64" class="px-4 py-1.5 font-mono text-xs uppercase rounded transition-all bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20">Base64 Coder</button>
+          <button id="b64-subtab-url" class="px-4 py-1.5 font-mono text-xs uppercase rounded transition-all text-slate-400 hover:text-white">URL Coder</button>
+        </div>
+
+        <!-- Base64 Workspace -->
+        <div id="b64-workspace" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Input Card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Source Input</span>
+              <!-- Toggle switch Encode/Decode -->
+              <div class="flex items-center gap-2 bg-[#0c101b] px-3 py-1.5 rounded border border-cyberBorder">
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="b64-direction-toggle" class="sr-only peer">
+                  <span class="mr-2 font-mono text-xs uppercase text-cyberCyan peer-checked:text-slate-400">Encode</span>
+                  <div class="relative w-9 h-5 bg-cyberPanelLight rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-cyberCyan after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyberPanelLight"></div>
+                  <span class="ml-2 font-mono text-xs uppercase text-slate-400 peer-checked:text-cyberCyan">Decode</span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="relative flex-1">
+              <textarea id="b64-input" rows="8" class="w-full h-full min-h-[200px] bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Enter source text..."></textarea>
+            </div>
+          </div>
+
+          <!-- Output Card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 relative">
+            <div class="flex items-center justify-between">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Processed Output</span>
+              <!-- Copy button -->
+              <button data-copy-target="b64-output" class="copy-btn flex items-center gap-1.5 px-3 py-1.5 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                COPY
+              </button>
+            </div>
+
+            <!-- Error banner -->
+            <div id="b64-error-banner" class="hidden p-3 bg-cyberMagenta/10 border border-cyberMagenta text-cyberMagenta font-mono text-xs rounded">
+              ERROR: Decoding failed. String is not a valid format.
+            </div>
+
+            <div class="relative flex-1">
+              <textarea id="b64-output" rows="8" readonly class="w-full h-full min-h-[200px] bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Output will appear here..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 3. TAB: CAESAR CIPHER ==================== -->
+      <section id="tab-content-caesar" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            CAESAR CIPHER <span class="text-xs font-normal text-slate-400 font-mono border border-cyberCyan/30 px-2 py-0.5 rounded">ROTATION</span>
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Shift text characters through the alphabet manually or run a brute-force sweep to output all 25 possible shifts concurrently.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left 2 Cols: Interactive Caesar controls & Text fields -->
+          <div class="lg:col-span-2 space-y-6">
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-5">
+              <!-- Controls row -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Direction Encrypt/Decrypt -->
+                <div>
+                  <label class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Cipher Mode</label>
+                  <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                    <button id="caesar-mode-encrypt" class="flex-1 py-2 font-mono text-xs uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Encrypt</button>
+                    <button id="caesar-mode-decrypt" class="flex-1 py-2 font-mono text-xs uppercase transition-all text-slate-400 hover:text-white">Decrypt</button>
+                  </div>
+                </div>
+
+                <!-- Alphabet Mode -->
+                <div>
+                  <label for="caesar-alphabet-mode" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Alphabet Mode</label>
+                  <select id="caesar-alphabet-mode" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-cyberCyan">
+                    <option value="english" selected>English (26 letters)</option>
+                    <option value="ukrainian">Ukrainian (33 letters)</option>
+                    <option value="russian">Russian (33 letters)</option>
+                    <option value="ascii">ASCII Printable (32-126)</option>
+                  </select>
+                </div>
+
+                <!-- Shift Direction (Forward/Backward) -->
+                <div>
+                  <label class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Shift Direction</label>
+                  <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                    <button id="caesar-dir-forward" class="flex-1 py-2 font-mono text-[10px] uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Forward (+)</button>
+                    <button id="caesar-dir-backward" class="flex-1 py-2 font-mono text-[10px] uppercase transition-all text-slate-400 hover:text-white">Backward (-)</button>
+                  </div>
+                </div>
+
+                <!-- Shift Slider + Numeric box -->
+                <div>
+                  <label id="caesar-shift-label" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Shift Offset (1-25)</label>
+                  <div class="flex items-center gap-4">
+                    <input type="range" id="caesar-shift-slider" min="1" max="25" value="3" class="flex-1 h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer">
+                    <input type="number" id="caesar-shift-number" min="1" max="25" value="3" class="w-16 bg-[#0c101b] border border-cyberBorder text-slate-100 rounded py-1.5 text-center font-mono text-sm focus:outline-none focus:border-cyberCyan">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Input Area -->
+              <div>
+                <label for="caesar-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Plain / Encoded Input</label>
+                <textarea id="caesar-input" rows="4" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Enter plaintext to shift..."></textarea>
+              </div>
+
+              <!-- Output Area -->
+              <div class="relative">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Shift Result</span>
+                  <button data-copy-target="caesar-output" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    COPY
+                  </button>
+                </div>
+                <textarea id="caesar-output" rows="4" readonly class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Cipher output..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right 1 Col: Brute-Force Side Card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col h-[520px]">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-4 mb-4">
+              <div>
+                <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Caesar Brute Force</span>
+                <h2 id="caesar-brute-title" class="text-sm font-bold text-cyberMagenta font-mono">ALL 25 SHIFTS</h2>
+              </div>
+              <div class="flex gap-2">
+                <button id="caesar-export-btn" class="px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 hover:border-cyberCyan rounded font-mono text-xs transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,240,255,0.03)]">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  EXPORT JSON
+                </button>
+                <button id="caesar-brute-btn" class="px-3 py-1 bg-cyberMagenta/10 text-cyberMagenta border border-cyberMagenta/20 hover:bg-cyberMagenta/20 hover:border-cyberMagenta rounded font-mono text-xs transition">
+                  REFRESH
+                </button>
+              </div>
+            </div>
+
+            <!-- List of brute force entries -->
+            <div id="caesar-brute-list" class="flex-1 overflow-y-auto space-y-3 pr-1 font-mono text-xs">
+              <div class="text-center text-slate-600 py-12">
+                Awaiting input to generate brute force list...
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 4. TAB: VIGENERE & A1Z26 ==================== -->
+      <section id="tab-content-vigenere" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            VIGENÈRE & A1Z26
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Vigenère Cipher uses alphabetical substitution based on a custom text Keyword. A1Z26 encodes standard characters into corresponding alphabet number indices.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Vigenere cipher module -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-cyan-glow/5">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <h2 class="font-mono text-sm font-bold text-cyberCyan">VIGENÈRE CIPHER</h2>
+              <!-- Encrypt/Decrypt -->
+              <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                <button id="vig-mode-encrypt" class="px-3 py-1 font-mono text-[10px] uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Encrypt</button>
+                <button id="vig-mode-decrypt" class="px-3 py-1 font-mono text-[10px] uppercase transition-all text-slate-400 hover:text-white">Decrypt</button>
+              </div>
+            </div>
+
+            <!-- Keyword -->
+            <div>
+              <label for="vig-key" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Cipher Key (Letters only)</label>
+              <input type="text" id="vig-key" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-cyberCyan" placeholder="e.g. CYBER" value="KEYWORD">
+            </div>
+
+            <!-- Input -->
+            <div>
+              <label for="vig-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Source Input</label>
+              <textarea id="vig-input" rows="4" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-3 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan" placeholder="Plaintext to key-shift..."></textarea>
+            </div>
+
+            <!-- Output -->
+            <div class="relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs uppercase font-mono tracking-wider text-slate-400 font-semibold">Output Result</span>
+                <button data-copy-target="vig-output" class="copy-btn flex items-center gap-1 px-2.5 py-0.5 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  COPY
+                </button>
+              </div>
+              <textarea id="vig-output" rows="4" readonly class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-3 font-mono text-sm cursor-text focus:outline-none" placeholder="Vigenère output..."></textarea>
+            </div>
+          </div>
+
+          <!-- A1Z26 module -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <h2 class="font-mono text-sm font-bold text-cyberMagenta">A1Z26 ALPHABET CONVERTER</h2>
+              <!-- Encode/Decode -->
+              <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                <button id="a1-direction-encode" class="px-3 py-1 font-mono text-[10px] uppercase transition-all bg-cyberMagenta/10 text-cyberMagenta font-bold">Text ➔ Num</button>
+                <button id="a1-direction-decode" class="px-3 py-1 font-mono text-[10px] uppercase transition-all text-slate-400 hover:text-white">Num ➔ Text</button>
+              </div>
+            </div>
+
+            <!-- Separator selection -->
+            <div>
+              <label for="a1-separator" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Delimiter Separator</label>
+              <select id="a1-separator" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-cyberCyan">
+                <option value="-">Dash (-)</option>
+                <option value=" ">Space ( )</option>
+                <option value=",">Comma (,)</option>
+              </select>
+            </div>
+
+            <!-- Input -->
+            <div>
+              <label for="a1-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Source Input</label>
+              <textarea id="a1-input" rows="4" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-3 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan" placeholder="Plaintext (e.g. hello) or digits (e.g. 8-5-12-12-15)"></textarea>
+            </div>
+
+            <!-- Output -->
+            <div class="relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs uppercase font-mono tracking-wider text-slate-400 font-semibold">Output Result</span>
+                <button data-copy-target="a1-output" class="copy-btn flex items-center gap-1 px-2.5 py-0.5 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  COPY
+                </button>
+              </div>
+              <textarea id="a1-output" rows="4" readonly class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-3 font-mono text-sm cursor-text focus:outline-none" placeholder="A1Z26 output..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 5. TAB: MORSE CODE CODER ==================== -->
+      <section id="tab-content-morse" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            <span class="text-cyberCyan">⠠⠵</span> MORSE CODE CODER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Convert alphanumeric strings into dots and dashes or decode Morse streams back into ASCII characters. Play the Morse output via high-frequency beeps.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Input card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Morse Workspace</span>
+              <!-- Direction toggle -->
+              <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                <button id="morse-direction-encode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Text ➔ Morse</button>
+                <button id="morse-direction-decode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all text-slate-400 hover:text-white">Morse ➔ Text</button>
+              </div>
+            </div>
+
+            <!-- Input area -->
+            <div>
+              <label for="morse-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Source Input</label>
+              <textarea id="morse-input" rows="8" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan" placeholder="Plaintext or Morse dots/dashes (. and -). Spaces split letters, Slashes (/) or triple spaces split words."></textarea>
+            </div>
+          </div>
+
+          <!-- Output card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 relative">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Processed Output</span>
+              <div class="flex gap-2">
+                <button data-copy-target="morse-output" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  COPY
+                </button>
+              </div>
+            </div>
+
+            <!-- Output field -->
+            <textarea id="morse-output" rows="5" readonly class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Morse code output..."></textarea>
+
+            <!-- Audio Beep Controller Panel -->
+            <div id="morse-audio-controls" class="border border-cyberBorder p-4 bg-[#0c101b]/60 rounded-lg flex flex-col md:flex-row items-center gap-4 justify-between mt-2">
+              <div class="flex items-center gap-3 w-full md:w-auto">
+                <button id="morse-play-btn" class="w-full md:w-auto px-4 py-2 border border-cyberCyan text-cyberCyan font-mono text-xs uppercase tracking-wider rounded bg-cyberCyan/10 hover:bg-cyberCyan/20 transition-all flex items-center justify-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  PLAY AUDIO
+                </button>
+              </div>
+
+              <!-- Volume controls -->
+              <div class="flex items-center gap-3 w-full md:w-auto flex-1 md:flex-none justify-end">
+                <span class="text-xs uppercase font-mono text-slate-400">Volume</span>
+                <input type="range" id="morse-volume" min="0" max="0.5" step="0.05" value="0.2" class="w-24 h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer">
+              </div>
+            </div>
+
+            <!-- Glowing playback display tracker -->
+            <div class="bg-[#070b14] border border-cyberBorder/60 p-3 rounded font-mono text-xs max-h-24 overflow-y-auto break-all tracking-widest text-slate-500 whitespace-pre-wrap select-none" id="morse-output-display">
+              Morse characters will highlight during active audio playback.
+            </div>
+          </div>
+        </div>
+
+        <!-- Audio Input Decoder Panel -->
+        <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 mt-6">
+          <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Audio Input Decoder</h2>
+            <div class="flex items-center gap-3">
+              <!-- Signal LED -->
+              <span class="text-[10px] uppercase font-mono text-slate-500 flex items-center gap-1.5">
+                <span id="morse-decoder-led" class="w-2.5 h-2.5 rounded-full bg-slate-700 transition-all duration-75"></span>
+                Signal
+              </span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Controls -->
+            <div class="md:col-span-1 space-y-4">
+              <button id="morse-decode-listen-btn" class="w-full py-3 border border-cyberCyan text-cyberCyan font-mono text-xs uppercase tracking-wider rounded bg-cyberCyan/10 hover:bg-cyberCyan/20 transition-all flex items-center justify-center gap-2">
+                <span id="morse-decode-listen-dot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                <span id="morse-decode-listen-text">Listen to Audio Source</span>
+              </button>
+
+              <!-- Secondary Audio Uploader Dropzone for Morse Decoder -->
+              <label id="morse-dropzone" for="morse-audio-file-input" class="block border border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-cyberPanelLight/20 rounded p-4 text-center cursor-pointer transition relative">
+                <input type="file" id="morse-audio-file-input" accept="audio/*" class="hidden">
+                <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  <p class="text-[10px] font-mono text-slate-300 pointer-events-none">DECODE AUDIO FILE (DROP OR BROWSE)</p>
+                  <div id="morse-loaded-filename" class="hidden text-[9px] uppercase font-mono text-cyberCyan border border-cyberCyan/30 px-2.5 py-0.5 bg-cyberCyan/10 rounded-full mt-1 pointer-events-none">
+                    NO FILE LOADED
+                  </div>
+                </div>
+              </label>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono text-slate-400">
+                  <span>Signal Threshold</span>
+                  <span id="morse-decoder-threshold-val">0.15</span>
+                </div>
+                <input type="range" id="morse-decoder-threshold" min="0" max="1" step="0.01" value="0.15" class="w-full h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer accent-cyberCyan">
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono text-slate-400">
+                  <span>Character Speed (WPM)</span>
+                  <span id="morse-decoder-char-wpm-val">20</span>
+                </div>
+                <input type="range" id="morse-decoder-char-wpm" min="5" max="45" step="1" value="20" class="w-full h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer accent-cyberCyan">
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono text-slate-400">
+                  <span>Spacing Speed (Farnsworth WPM)</span>
+                  <span id="morse-decoder-space-wpm-val">12</span>
+                </div>
+                <input type="range" id="morse-decoder-space-wpm" min="5" max="45" step="1" value="12" class="w-full h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer accent-cyberCyan">
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono text-slate-400">
+                  <span>Target Frequency</span>
+                  <span>700Hz - 900Hz</span>
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 leading-normal">
+                  Pitches are analyzed using the system microphone or uploaded audio file.
+                </div>
+              </div>
+            </div>
+
+            <!-- Decoded Output -->
+            <div class="md:col-span-2 flex flex-col gap-2 relative">
+              <div class="flex items-center justify-between">
+                <span class="block text-xs uppercase font-mono tracking-wider text-slate-400">Decoded Stream</span>
+                <div class="flex gap-2">
+                  <button id="morse-decode-clear-btn" class="px-2.5 py-1 border border-cyberBorder hover:border-cyberMagenta/40 hover:text-cyberMagenta rounded font-mono text-[10px] uppercase text-slate-500 transition-all">
+                    Clear Stream
+                  </button>
+                  <button data-copy-target="morse-decode-stream" class="copy-btn flex items-center gap-1 px-2.5 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-[10px] transition">
+                    COPY
+                  </button>
+                </div>
+              </div>
+              <textarea id="morse-decode-stream" readonly rows="6" class="w-full flex-grow bg-[#0c101b]/50 border border-cyberBorder text-slate-200 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Decoded characters will appear here in real-time..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 6. TAB: HEX CODER ==================== -->
+      <section id="tab-content-hex" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            HEX CODER <span class="text-xs font-normal text-slate-400 font-mono border border-cyberCyan/30 px-2 py-0.5 rounded">HEXADECIMAL</span>
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Convert UTF-8 character strings into Hex values. Smart Parsing handles continuous blocks of raw Hex by split-chunking into byte pairs (8 bits) for seamless ASCII conversion.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Input card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Hex Workspace</span>
+              <!-- Direction toggle -->
+              <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                <button id="hex-direction-encode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Text ➔ HEX</button>
+                <button id="hex-direction-decode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all text-slate-400 hover:text-white">HEX ➔ Text</button>
+              </div>
+            </div>
+
+            <!-- Delimiter Selector (For encoding) -->
+            <div id="hex-encoding-options">
+              <label for="hex-separator" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Hex Separator Style</label>
+              <select id="hex-separator" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-cyberCyan">
+                <option value="space">Space separated (e.g. 48 65 6c)</option>
+                <option value="colon">Colon separated (e.g. 48:65:6c)</option>
+                <option value="0x">0x notation (e.g. 0x48 0x65)</option>
+                <option value="none">None - solid string (e.g. 48656c)</option>
+              </select>
+            </div>
+
+            <!-- Input area -->
+            <div>
+              <label for="hex-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Source Input</label>
+              <textarea id="hex-input" rows="6" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan" placeholder="Plain text or hex string..."></textarea>
+            </div>
+          </div>
+
+          <!-- Output card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 relative">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Processed Output</span>
+              <button data-copy-target="hex-output" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                COPY
+              </button>
+            </div>
+
+            <!-- Warning badge for odd length -->
+            <div id="hex-odd-warning" class="hidden p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-xs rounded">
+              NOTICE: Input length is odd. Continuous Hex strings require an even number of characters. Solid parsing will pad the final character.
+            </div>
+
+            <div class="relative flex-1">
+              <textarea id="hex-output" rows="8" readonly class="w-full h-full min-h-[220px] bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Hex outputs will render here..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 7. TAB: BINARY CODER ==================== -->
+      <section id="tab-content-binary" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            BINARY CODER <span class="text-xs font-normal text-slate-400 font-mono border border-cyberCyan/30 px-2 py-0.5 rounded">8-BIT</span>
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Translate characters into binary 8-bit registers (0s and 1s). Translates solid or space-separated binary strings back to ASCII characters in real-time.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Input card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Binary Workspace</span>
+              <!-- Direction toggle -->
+              <div class="flex rounded border border-cyberBorder overflow-hidden bg-[#0c101b]">
+                <button id="binary-direction-encode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all bg-cyberCyan/10 text-cyberCyan font-bold">Text ➔ Binary</button>
+                <button id="binary-direction-decode" class="px-3 py-1.5 font-mono text-xs uppercase transition-all text-slate-400 hover:text-white">Binary ➔ Text</button>
+              </div>
+            </div>
+
+            <!-- Separator Option -->
+            <div id="bin-encoding-options">
+              <label for="binary-separator" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-1.5">Binary Formatting</label>
+              <select id="binary-separator" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-cyberCyan">
+                <option value="space">Space Separated Bytes (e.g. 01001000 01000101)</option>
+                <option value="none">Solid Strings (e.g. 0100100001000101)</option>
+              </select>
+            </div>
+
+            <!-- Input area -->
+            <div>
+              <label for="binary-input" class="block text-xs uppercase font-mono tracking-wider text-slate-400 mb-2">Source Input</label>
+              <textarea id="binary-input" rows="6" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan" placeholder="Plain text or 01001000..."></textarea>
+            </div>
+          </div>
+
+          <!-- Output card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 relative">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-3">
+              <span class="text-xs uppercase font-mono tracking-wider text-slate-400">Processed Output</span>
+              <button data-copy-target="binary-output" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                COPY
+              </button>
+            </div>
+
+            <!-- Warning badge for odd length -->
+            <div id="binary-chunk-warning" class="hidden p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-xs rounded">
+              NOTICE: Continuous binary bit length is not a multiple of 8. The final partial byte will be padded with leading zeros.
+            </div>
+
+            <div class="relative flex-1">
+              <textarea id="binary-output" rows="8" readonly class="w-full h-full min-h-[220px] bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Binary string output..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 8. TAB: AUDIO VISUALIZER ==================== -->
+      <section id="tab-content-visualizer" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            AUDIO SPECTRAL VISUALIZER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Upload custom audio files (.mp3, .wav) or toggle your live system microphone to render real-time frequency analysis animations on Canvas.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left 2 Cols: Drag & Drop + Canvas visualizer -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Dropzone -->
+            <label id="visualizer-dropzone" for="audio-file-input" class="block border-2 border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-cyberPanel rounded-lg p-6 text-center cursor-pointer transition relative">
+              <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
+              <div class="flex flex-col items-center justify-center gap-3 pointer-events-none">
+                <p class="text-sm font-mono text-slate-300 pointer-events-none">DRAG & DROP AUDIO FILE OR CLICK TO BROWSE</p>
+                <p class="text-xs font-mono text-slate-500 pointer-events-none">Supports .mp3, .wav files. Max size 25MB.</p>
+                <div id="loaded-filename" class="hidden text-xs uppercase font-mono text-cyberCyan border border-cyberCyan/30 px-3 py-1 bg-cyberCyan/10 rounded-full mt-1 pointer-events-none">
+                  NO FILE LOADED
+                </div>
+              </div>
+            </label>
+
+            <!-- Canvas Card -->
+            <div class="bg-cyberPanel border border-cyberBorder rounded-lg p-4 flex flex-col gap-4 relative">
+              <div class="flex items-center justify-between">
+                <div class="flex gap-2">
+                  <button id="viz-mode-bars" class="px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 rounded font-mono text-xs hover:bg-cyberCyan/25">Bars</button>
+                  <button id="viz-mode-radial" class="px-3 py-1 text-slate-400 hover:text-white rounded font-mono text-xs">Circular</button>
+                  <button id="viz-mode-wave" class="px-3 py-1 text-slate-400 hover:text-white rounded font-mono text-xs">Oscilloscope</button>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div id="visualizer-active-indicator" class="w-2 h-2 bg-slate-700 rounded-full"></div>
+                  <span id="visualizer-active-text" class="text-[10px] uppercase font-mono text-slate-500">Standby</span>
+                </div>
+              </div>
+
+              <!-- Controls Bar -->
+              <div class="flex flex-wrap items-center gap-6 bg-[#070b13]/60 p-3 rounded border border-cyberBorder/40">
+                <!-- Scroll Speed Slider -->
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] uppercase font-mono text-slate-400">Scroll Speed:</span>
+                  <input id="spectrogram-scroll-speed" type="range" min="1" max="5" value="2" class="w-24 h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer accent-cyberCyan">
+                  <span id="spectrogram-scroll-speed-val" class="text-[10px] font-mono text-cyberCyan w-6">2px</span>
+                </div>
+
+                <!-- Vertical Zoom Dropdown -->
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] uppercase font-mono text-slate-400">Range:</span>
+                  <select id="spectrogram-zoom-range" class="bg-cyberPanel border border-cyberBorder text-slate-200 rounded px-2 py-0.5 font-mono text-xs focus:outline-none focus:border-cyberCyan transition-all">
+                    <option value="full">Full Spectrum (0-22kHz)</option>
+                    <option value="art18">Art Range (0-18kHz)</option>
+                    <option value="art15">Art Range (0-15kHz)</option>
+                    <option value="mid8">Mid Range (0-8kHz)</option>
+                    <option value="mid4">Low-Mid Range (0-4kHz)</option>
+                    <option value="bass2">Bass Range (0-2kHz)</option>
+                  </select>
+                </div>
+
+                <!-- Color Sensitivity (Gain) Slider -->
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] uppercase font-mono text-slate-400">Gain:</span>
+                  <input id="spectrogram-gain" type="range" min="1" max="5" step="0.1" value="1.5" class="w-24 h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer accent-cyberCyan">
+                  <span id="spectrogram-gain-val" class="text-[10px] font-mono text-cyberCyan w-8">1.5x</span>
+                </div>
+              </div>
+
+              <!-- Canvas & Axis Container -->
+              <div class="flex relative w-full h-[280px] bg-[#070b13] rounded border border-cyberBorder overflow-hidden">
+                <div class="flex-grow h-full relative">
+                  <canvas id="visualizer-canvas" class="w-full h-full block"></canvas>
+                </div>
+                <div id="visualizer-axis" class="w-[70px] h-full bg-[#080d1a] border-l border-cyberBorder/30 py-2 select-none relative shrink-0">
+                  <!-- Dynamic ticks and labels will be inserted here -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right 1 Col: Audio controls & Mic toggle -->
+          <div class="space-y-6">
+            <!-- Mic card -->
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Microphone Input</h2>
+              <button id="mic-toggle-btn" class="w-full flex items-center justify-between border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-mono text-xs uppercase tracking-wider rounded py-3.5 px-4 transition-all">
+                <span class="flex items-center gap-2">
+                  <span id="mic-btn-dot" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                  <span id="mic-btn-status">MIC IN</span>
+                </span>
+                <span class="text-[10px] text-slate-500 font-mono">TOGGLE LIVE MIC</span>
+              </button>
+            </div>
+
+            <!-- Player Controls card -->
+            <div id="player-controls-panel" class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Audio Playback Controls</h2>
+
+              <div class="flex items-center gap-4 justify-center py-2">
+                <button id="audio-play-btn" class="w-12 h-12 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 hover:border-cyberCyan rounded-full flex items-center justify-center transition">
+                  <svg id="play-svg" class="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                  <svg id="pause-svg" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+              </div>
+
+              <!-- Seek timeline slider -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span id="audio-time">0:00 / 0:00</span>
+                </div>
+                <input type="range" id="audio-progress" min="0" max="100" value="0" class="w-full h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer">
+              </div>
+
+              <!-- Volume slider -->
+              <div class="flex items-center justify-between text-xs font-mono text-slate-400 pt-2 border-t border-cyberBorder/60">
+                <span>VOLUME</span>
+                <div class="flex items-center gap-2">
+                  <input type="range" id="audio-volume" min="0" max="1" step="0.05" value="0.7" class="w-24 h-1 bg-cyberPanelLight rounded-lg appearance-none cursor-pointer">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 9. TAB: XOR CIPHER ==================== -->
+      <section id="tab-content-xor" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            XOR CIPHER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Encrypt or decrypt data using bitwise XOR operations. Key cycles automatically over the input data length.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Inputs Card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Configuration</h2>
+              <div class="flex gap-2 p-0.5 bg-cyberBg border border-cyberBorder rounded w-fit">
+                <button id="xor-mode-text" class="px-3 py-1 font-mono text-xs uppercase rounded transition-all bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20">Text Key</button>
+                <button id="xor-mode-hex" class="px-3 py-1 font-mono text-xs uppercase rounded transition-all text-slate-400 hover:text-white">HEX Key</button>
+              </div>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="xor-error-banner" class="hidden p-3 bg-cyberMagenta/10 border border-cyberMagenta text-cyberMagenta font-mono text-xs rounded">
+              INVALID HEX FORMAT
+            </div>
+
+            <div class="space-y-3">
+              <div class="space-y-1">
+                <label for="xor-input" class="block font-mono text-xs uppercase text-slate-400">Input Data</label>
+                <textarea id="xor-input" rows="4" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Enter plaintext or hex representation..."></textarea>
+              </div>
+
+              <div class="space-y-1">
+                <label for="xor-key" class="block font-mono text-xs uppercase text-slate-400">XOR Key</label>
+                <input id="xor-key" type="text" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Enter string key or hex pairs (e.g. AA BB CC)...">
+              </div>
+            </div>
+          </div>
+
+          <!-- Outputs Card -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 relative">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Result Output</h2>
+              <div class="flex gap-2">
+                <button data-copy-target="xor-output-hex" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                  COPY HEX
+                </button>
+                <button data-copy-target="xor-output-text" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                  COPY TEXT
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-3 flex-1 flex flex-col">
+              <div class="space-y-1 flex-1 flex flex-col">
+                <label for="xor-output-hex" class="block font-mono text-xs uppercase text-slate-400">HEX Output</label>
+                <textarea id="xor-output-hex" readonly class="w-full flex-1 min-h-[100px] bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Hex result..."></textarea>
+              </div>
+              <div class="space-y-1 flex-1 flex flex-col">
+                <label for="xor-output-text" class="block font-mono text-xs uppercase text-slate-400">Text Output (UTF-8)</label>
+                <textarea id="xor-output-text" readonly class="w-full flex-1 min-h-[100px] bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm cursor-text focus:outline-none" placeholder="Decoded string result..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 10. TAB: JWT DECODER ==================== -->
+      <section id="tab-content-jwt" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            JWT DECODER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Decode JSON Web Tokens (JWT) locally. Tokens are parsed completely in-browser without sending credentials over the network.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Token Input Column -->
+          <div class="lg:col-span-1 bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Encoded JWT Token</h2>
+            <div class="space-y-4 flex-1 flex flex-col">
+              <textarea id="jwt-input" class="w-full flex-grow min-h-[250px] bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-xs focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Paste your header.payload.signature here..."></textarea>
+              
+              <!-- Segment Visualization -->
+              <div class="space-y-2">
+                <span class="block font-mono text-[10px] uppercase text-slate-500">Visual breakdown</span>
+                <div id="jwt-visualizer" class="p-3 bg-[#070b13] rounded border border-cyberBorder text-xs font-mono break-all leading-relaxed whitespace-pre-wrap select-text">
+                  <span class="text-slate-500">PASTE TOKEN TO VIEW SEGMENTS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decoded Output Column (takes 2/3 space) -->
+          <div class="lg:col-span-2 bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Decoded Content</h2>
+            
+            <!-- Error Banner -->
+            <div id="jwt-error-banner" class="hidden p-3 bg-cyberMagenta/10 border border-cyberMagenta text-cyberMagenta font-mono text-xs rounded">
+              INVALID JWT FORMAT: Must consist of exactly three dot-separated Base64URL components.
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+              <!-- Header Block -->
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs uppercase text-cyberMagenta font-bold">Header</span>
+                  <button data-copy-target="jwt-header" class="copy-btn flex items-center gap-1 px-2 py-0.5 bg-cyberMagenta/10 text-cyberMagenta border border-cyberMagenta/20 hover:bg-cyberMagenta/20 rounded font-mono text-[10px] transition">
+                    COPY
+                  </button>
+                </div>
+                <textarea id="jwt-header" readonly class="w-full flex-grow min-h-[200px] bg-[#0c101b]/60 border border-cyberMagenta/20 text-cyberMagenta font-mono text-xs rounded p-4 focus:outline-none" placeholder="Header JSON..."></textarea>
+              </div>
+
+              <!-- Payload Block -->
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs uppercase text-cyberCyan font-bold">Payload</span>
+                  <button data-copy-target="jwt-payload" class="copy-btn flex items-center gap-1 px-2 py-0.5 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-[10px] transition">
+                    COPY
+                  </button>
+                </div>
+                <textarea id="jwt-payload" readonly class="w-full flex-grow min-h-[200px] bg-[#0c101b]/60 border border-cyberCyan/20 text-cyberCyan font-mono text-xs rounded p-4 focus:outline-none" placeholder="Payload JSON..."></textarea>
+              </div>
+            </div>
+            
+            <!-- Signature Block -->
+            <div class="flex flex-col gap-2 border-t border-cyberBorder/60 pt-4">
+              <span class="font-mono text-xs uppercase text-cyberGreen font-bold">Signature Verification Status</span>
+              <div class="bg-[#0c101b]/40 border border-cyberGreen/20 text-cyberGreen font-mono text-xs rounded p-3 flex items-center justify-between">
+                <span>Verification requires a server-side secret, but base64 signature segment has been isolated.</span>
+                <span class="px-2 py-0.5 bg-cyberGreen/10 border border-cyberGreen/30 rounded text-[10px] text-shadow">LOCAL PARSE DONE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 11. TAB: FILE HASHER ==================== -->
+      <section id="tab-content-hasher" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            LOCAL FILE HASHER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Calculate cryptographic hashes of files locally using standard browser Web Crypto APIs. Fast, secure, and offline.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- File selection -->
+          <div class="lg:col-span-1 space-y-4">
+            <label id="hasher-dropzone" for="hasher-file-input" class="block border-2 border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-cyberPanel rounded-lg p-8 text-center cursor-pointer transition relative">
+              <input type="file" id="hasher-file-input" class="hidden">
+              <div class="flex flex-col items-center justify-center gap-3 pointer-events-none">
+                <p class="text-sm font-mono text-slate-300 pointer-events-none">DRAG & DROP FILE OR CLICK TO BROWSE</p>
+                <p class="text-xs font-mono text-slate-500 pointer-events-none">Runs 100% locally in-browser.</p>
+                <div id="hasher-filename" class="hidden text-xs uppercase font-mono text-cyberCyan border border-cyberCyan/30 px-3 py-1 bg-cyberCyan/10 rounded-full mt-1 pointer-events-none">
+                  NO FILE LOADED
+                </div>
+              </div>
+            </label>
+            
+            <!-- File Info Card -->
+            <div id="hasher-file-info" class="hidden bg-cyberPanel border border-cyberBorder p-4 rounded-lg space-y-2 font-mono text-xs">
+              <span class="block text-slate-500 border-b border-cyberBorder pb-1 uppercase">File Details</span>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Name:</span>
+                <span id="hasher-detail-name" class="text-white break-all max-w-[150px] text-right"></span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Size:</span>
+                <span id="hasher-detail-size" class="text-white"></span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Type:</span>
+                <span id="hasher-detail-type" class="text-white"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hash results -->
+          <div class="lg:col-span-2 bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-6">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Cryptographic Checksums</h2>
+            
+            <div class="space-y-4">
+              <!-- SHA-256 -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-xs uppercase text-cyberCyan font-bold">SHA-256</span>
+                  <button data-copy-target="hasher-sha256" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                    COPY SHA-256
+                  </button>
+                </div>
+                <input id="hasher-sha256" type="text" readonly class="w-full bg-[#0c101b] border border-cyberBorder text-slate-200 rounded p-3 font-mono text-xs select-all focus:outline-none" placeholder="SHA-256 digest will load here...">
+              </div>
+
+              <!-- SHA-1 -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-xs uppercase text-cyberMagenta font-bold">SHA-1</span>
+                  <button data-copy-target="hasher-sha1" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberMagenta/10 text-cyberMagenta border border-cyberMagenta/20 hover:bg-cyberMagenta/20 rounded font-mono text-xs transition">
+                    COPY SHA-1
+                  </button>
+                </div>
+                <input id="hasher-sha1" type="text" readonly class="w-full bg-[#0c101b] border border-cyberBorder text-slate-200 rounded p-3 font-mono text-xs select-all focus:outline-none" placeholder="SHA-1 digest will load here...">
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 12. TAB: IMAGE STEGANOGRAPHY ==================== -->
+      <section id="tab-content-stego" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            LSB IMAGE STEGANOGRAPHY
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Hide secret messages inside PNG images or extract hidden messages from stegano-images using Least Significant Bit (LSB) encoding.
+          </p>
+        </div>
+
+        <!-- Sub-tabs selection -->
+        <div class="flex gap-2 p-1 bg-cyberPanel border border-cyberBorder rounded w-fit">
+          <button id="stego-subtab-hide" class="px-4 py-1.5 font-mono text-xs uppercase rounded transition-all bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20">Hide Message</button>
+          <button id="stego-subtab-extract" class="px-4 py-1.5 font-mono text-xs uppercase rounded transition-all text-slate-400 hover:text-white">Extract Message</button>
+        </div>
+
+        <!-- Hide Message panel -->
+        <div id="stego-panel-hide" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Upload and config -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">1. Upload Source Image</h2>
+            
+            <label id="stego-hide-dropzone" for="stego-hide-input" class="block border border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-[#070b13] rounded p-6 text-center cursor-pointer transition relative">
+              <input type="file" id="stego-hide-input" accept="image/png, image/jpeg" class="hidden">
+              <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                <p class="text-xs font-mono text-slate-300">SELECT SOURCE IMAGE (PNG RECOMMENDED)</p>
+                <div id="stego-hide-filename" class="hidden text-[10px] font-mono text-cyberCyan border border-cyberCyan/20 px-2.5 py-0.5 bg-cyberCyan/5 rounded-full mt-1">NO FILE</div>
+              </div>
+            </label>
+
+            <div class="space-y-1">
+              <label for="stego-hide-message" class="block font-mono text-xs uppercase text-slate-400">2. Secret Message</label>
+              <textarea id="stego-hide-message" rows="3" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-3 font-mono text-xs focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Type secret message to hide..."></textarea>
+            </div>
+
+            <!-- Hide Error -->
+            <div id="stego-hide-error" class="hidden p-3 bg-cyberMagenta/10 border border-cyberMagenta text-cyberMagenta font-mono text-xs rounded"></div>
+
+            <button id="stego-hide-btn" class="w-full flex items-center justify-center gap-2 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/35 hover:bg-cyberCyan/20 py-3 rounded font-mono text-xs uppercase tracking-wider transition-all">
+              Hide Message & Download PNG
+            </button>
+          </div>
+
+          <!-- Preview -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Image Preview</h2>
+            <div class="flex-grow flex items-center justify-center bg-[#070b13] rounded border border-cyberBorder p-4 min-h-[250px] relative overflow-hidden">
+              <img id="stego-hide-preview" class="max-h-[220px] max-w-full rounded hidden object-contain border border-cyberBorder/30">
+              <span id="stego-hide-preview-placeholder" class="font-mono text-xs text-slate-600 select-none">No image uploaded</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Extract Message panel (hidden by default) -->
+        <div id="stego-panel-extract" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">1. Upload Stego Image</h2>
+            
+            <label id="stego-extract-dropzone" for="stego-extract-input" class="block border border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-[#070b13] rounded p-6 text-center cursor-pointer transition relative">
+              <input type="file" id="stego-extract-input" accept="image/png" class="hidden">
+              <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                <p class="text-xs font-mono text-slate-300">SELECT STEGO IMAGE (PNG ONLY)</p>
+                <div id="stego-extract-filename" class="hidden text-[10px] font-mono text-cyberCyan border border-cyberCyan/20 px-2.5 py-0.5 bg-cyberCyan/5 rounded-full mt-1">NO FILE</div>
+              </div>
+            </label>
+
+            <!-- Extract Error -->
+            <div id="stego-extract-error" class="hidden p-3 bg-cyberMagenta/10 border border-cyberMagenta text-cyberMagenta font-mono text-xs rounded"></div>
+
+            <button id="stego-extract-btn" class="w-full flex items-center justify-center gap-2 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/35 hover:bg-cyberCyan/20 py-3 rounded font-mono text-xs uppercase tracking-wider transition-all">
+              Extract Hidden Message
+            </button>
+          </div>
+
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Extracted Secret</h2>
+              <button data-copy-target="stego-extract-result" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                COPY TEXT
+              </button>
+            </div>
+            
+            <textarea id="stego-extract-result" readonly rows="8" class="w-full flex-grow bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-xs focus:outline-none cursor-text" placeholder="Decoded message will show here..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 13. TAB: BARLINE CIPHER ==================== -->
+      <section id="tab-content-barline" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <h1 class="font-mono text-lg font-bold uppercase tracking-wider text-slate-100">
+              Barline Cipher Decoder
+            </h1>
+          </div>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Decode musical steganography using Unicode barlines (<code class="text-cyberCyan">𝄀</code>, <code class="text-cyberCyan">𝄁</code>, <code class="text-cyberCyan">𝄂</code>, <code class="text-cyberCyan">𝄃</code>). Performs brute-force mapping to recover hidden text.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left Column: Input and controls -->
+          <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">Unicode Barline Input</h2>
+              <button id="barline-clear-btn" class="px-2.5 py-1 bg-cyberMagenta/10 text-cyberMagenta border border-cyberMagenta/20 hover:bg-cyberMagenta/20 rounded font-mono text-xs transition">
+                CLEAR
+              </button>
+            </div>
+            
+            <textarea id="barline-input" rows="8" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan transition-all" placeholder="Paste musical barline symbols (e.g. 𝄀𝄂𝄁𝄃𝄀𝄁𝄂𝄃)..."></textarea>
+
+            <button id="barline-decode-btn" class="w-full flex items-center justify-center gap-2 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/35 hover:bg-cyberCyan/20 py-3 rounded font-mono text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,240,255,0.05)]">
+              Smart Decode (Brute-force Mappings)
+            </button>
+          </div>
+
+          <!-- Right Column: Outputs -->
+          <div class="space-y-6">
+            <!-- Raw Base-4 Digits -->
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-3">
+              <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+                <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">A. Raw Base-4 Digits</h2>
+                <button data-copy-target="barline-digits" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  COPY DIGITS
+                </button>
+              </div>
+              <input type="text" id="barline-digits" readonly class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-3 font-mono text-sm focus:outline-none" placeholder="U+1D100=0, U+1D101=1, U+1D102=2, U+1D103=3...">
+            </div>
+
+            <!-- Decoded Plaintext / HEX -->
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-3">
+              <div class="flex items-center justify-between border-b border-cyberBorder pb-2">
+                <div class="flex items-center gap-2">
+                  <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400">B. Decoded Plaintext / HEX</h2>
+                  <span id="barline-mapping-badge" class="hidden text-[9px] uppercase font-mono px-2 py-0.5 bg-cyberGreen/10 border border-cyberGreen/20 text-cyberGreen rounded shadow-[0_0_8px_rgba(57,255,20,0.15)] font-bold"></span>
+                </div>
+                <button data-copy-target="barline-plaintext" class="copy-btn flex items-center gap-1.5 px-3 py-1 bg-cyberCyan/10 text-cyberCyan border border-cyberCyan/20 hover:bg-cyberCyan/20 rounded font-mono text-xs transition">
+                  COPY PLAINTEXT
+                </button>
+              </div>
+              <textarea id="barline-plaintext" readonly rows="8" class="w-full bg-[#0c101b]/50 border border-cyberBorder text-slate-300 rounded p-4 font-mono text-sm focus:outline-none cursor-text" placeholder="Decoded results will display here..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 14. TAB: METADATA & FILE ANALYZER ==================== -->
+      <section id="tab-content-metadata" class="tab-content hidden space-y-6">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-tight text-white font-mono flex items-center gap-2">
+            FILE & METADATA ANALYZER
+          </h1>
+          <p class="text-sm text-slate-400 max-w-2xl">
+            Analyze file properties entirely client-side. Inspect file headers, detect true formats via magic bytes (signatures), and extract image dimensions and aspect ratios locally.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left Column: Drag & Drop zone -->
+          <div class="lg:col-span-1 space-y-4">
+            <label id="metadata-dropzone" for="metadata-file-input" class="block border-2 border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-cyberPanel rounded-lg p-8 text-center cursor-pointer transition relative">
+              <input type="file" id="metadata-file-input" class="hidden">
+              <div class="flex flex-col items-center justify-center gap-3 pointer-events-none">
+                <svg class="w-12 h-12 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <p class="text-sm font-mono text-slate-300 pointer-events-none">DRAG & DROP ANY FILE OR CLICK TO BROWSE</p>
+                <p class="text-xs font-mono text-slate-500 pointer-events-none">Processed 100% locally in-browser.</p>
+                <div id="metadata-loaded-filename" class="hidden text-xs uppercase font-mono text-cyberCyan border border-cyberCyan/30 px-3 py-1 bg-cyberCyan/10 rounded-full mt-1 pointer-events-none">
+                  NO FILE LOADED
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Right 2 Columns: Outputs -->
+          <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- A. System Metadata Panel -->
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-cyan-glow/5">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">System Metadata</h2>
+              <div class="space-y-4 font-mono text-xs text-slate-300">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">File Name:</span>
+                  <span id="metadata-filename-val" class="text-white break-all">-</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">File Size:</span>
+                  <span id="metadata-filesize-val" class="text-white">-</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">Declared MIME Type:</span>
+                  <span id="metadata-mime-val" class="text-white break-all">-</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">Last Modified:</span>
+                  <span id="metadata-modified-val" class="text-white">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- B. Deep Binary/Geometry Panel -->
+            <div class="bg-cyberPanel border border-cyberBorder p-5 rounded-lg flex flex-col gap-4 shadow-magenta-glow/5">
+              <h2 class="font-mono text-xs uppercase tracking-wider text-slate-400 border-b border-cyberBorder pb-2">Binary & Geometry Analysis</h2>
+              <div class="space-y-4 font-mono text-xs text-slate-300">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">Magic Bytes (Hex Signature):</span>
+                  <span id="metadata-hex-val" class="text-cyberCyan font-bold tracking-widest break-all">-</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 uppercase text-[10px]">Verified File Type:</span>
+                  <span id="metadata-type-val" class="text-cyberMagenta font-bold uppercase">-</span>
+                </div>
+                
+                <!-- Image Geometry Section (hidden by default) -->
+                <div id="metadata-geometry-section" class="hidden space-y-4 pt-2 border-t border-cyberBorder/30">
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Dimensions (Width × Height):</span>
+                    <span id="metadata-dimensions-val" class="text-white">-</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-slate-500 uppercase text-[10px]">Aspect Ratio:</span>
+                    <span id="metadata-aspect-val" class="text-white font-bold">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Global scripts -->
+  <script src="renderer.js"></script>
+</body>
+</html>

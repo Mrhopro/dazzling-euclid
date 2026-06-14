@@ -1,0 +1,13 @@
+{
+  "name": "crypto-code-multitool",
+  "version": "1.0.4",
+  "description": "Cyberpunk Crypto & Forensic Desktop Multitool",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  },
+  "private": true
+}
