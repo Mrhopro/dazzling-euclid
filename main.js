@@ -559,12 +559,16 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
       // Generate a temporary destination file in the OS temp directory
       const tempOutputPath = path.join(os.tmpdir(), `outguess_extracted_${Date.now()}.txt`);
 
+      // Sanitize paths by replacing backward slashes with forward slashes for MSYS compatibility
+      const sanitizedPath = filePath.replace(/\\/g, '/');
+      const sanitizedTempOutputPath = tempOutputPath.replace(/\\/g, '/');
+
       // Prepare arguments
       const args = [];
       if (stegoKey) {
         args.push('-k', stegoKey);
       }
-      args.push('-r', filePath, tempOutputPath);
+      args.push('-r', sanitizedPath, sanitizedTempOutputPath);
 
       console.log(`Executing OutGuess: ${binaryPath} ${args.join(' ')} (CWD: ${binDirPath})`);
 
