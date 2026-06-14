@@ -2636,7 +2636,8 @@
         metadataHexVal.textContent = "ERROR";
         metadataTypeVal.textContent = "Analysis Failed: " + err.message;
       }
-    }====
+    }
+    // ==========================================
     // GLOBAL UTILITIES (CLIPBOARD COPY)
     // ==========================================
     document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -2663,4 +2664,4 @@
         }
       });
     });
-  
+    }
