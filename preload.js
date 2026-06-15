@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('api', {
   hashFile: (filePath) => ipcRenderer.invoke('hash-file', filePath),
   processMorseFrame: (data) => ipcRenderer.invoke('process-morse-frame', data),
   scanSteganography: (filePath) => ipcRenderer.invoke('scan-steganography', filePath),
+  // Executes OutGuess steganography extraction using the WSL-bridge backend
   runOutguess: (filePath, stegoKey) => ipcRenderer.invoke('run-outguess', filePath, stegoKey)
 });

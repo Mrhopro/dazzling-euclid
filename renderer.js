@@ -2807,7 +2807,9 @@
       outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-cyberCyan whitespace-pre-wrap select-text animate-pulse';
       outguessTerminal.textContent = 'OutGuess extraction initialized. Spawning background binary process...\nPerforming discrete coefficient analysis...';
 
-      const key = outguessKeyInput.value.trim();
+      // Sanitize inputs: trim and strip dangerous shell meta-characters just in case
+      const rawKey = outguessKeyInput.value || '';
+      const key = rawKey.trim().replace(/[\n\r]/g, ''); // strip newlines
 
       try {
         const result = await window.api.runOutguess(activeOutguessFilePath, key);
@@ -2819,7 +2821,10 @@
           
           let terminalOutput = '';
           if (result.stderr) {
-            terminalOutput += `[Process Log]:\n${result.stderr}\n\n`;
+            terminalOutput += `[WSL Process Log (stderr)]:\n${result.stderr}\n\n`;
+          }
+          if (result.stdout) {
+            terminalOutput += `[WSL Process Log (stdout)]:\n${result.stdout}\n\n`;
           }
           terminalOutput += `[Extracted Data Payload]:\n${result.data || '[Empty payload or non-text content]'}`;
           outguessTerminal.textContent = terminalOutput;
@@ -2830,7 +2835,7 @@
         outguessExecuteBtn.disabled = false;
         outguessExecuteBtn.textContent = 'Extraction Failed';
         outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-red-500 whitespace-pre-wrap select-text';
-        outguessTerminal.textContent = `OutGuess process failed:\n${err.message}`;
+        outguessTerminal.textContent = `OutGuess WSL bridge failed:\n${err.message}`;
       }
     });
 

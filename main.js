@@ -540,6 +540,14 @@ ipcMain.handle('scan-steganography', async (event, filePath) => {
 // 5. OUTGUESS STEGO DECODER BACKEND
 // ==========================================
 
+// Helper to translate Windows paths to WSL Linux paths (e.g., C:\path\to\file -> /mnt/c/path/to/file)
+function toWslPath(winPath) {
+  if (!winPath) return '';
+  let wslPath = winPath.replace(/\\/g, '/');
+  wslPath = wslPath.replace(/^([A-Za-z]):/, (match, drive) => `/mnt/${drive.toLowerCase()}`);
+  return wslPath;
+}
+
 ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
   return new Promise((resolve) => {
     try {
@@ -548,31 +556,30 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
       }
 
       const binDirPath = path.join(__dirname, 'bin');
-      const isWindows = process.platform === 'win32';
-      const binaryName = isWindows ? 'outguess.exe' : 'outguess';
-      const binaryPath = path.join(binDirPath, binaryName);
+      const binaryPath = path.join(binDirPath, 'outguess');
 
       if (!fs.existsSync(binaryPath)) {
-        return resolve({ success: false, error: `OutGuess binary not found at ${binaryPath}` });
+        return resolve({ success: false, error: `OutGuess Linux binary not found at ${binaryPath}` });
       }
 
       // Generate a temporary destination file in the OS temp directory
       const tempOutputPath = path.join(os.tmpdir(), `outguess_extracted_${Date.now()}.txt`);
 
-      // Sanitize paths by replacing backward slashes with forward slashes for MSYS compatibility
-      const sanitizedPath = filePath.replace(/\\/g, '/');
-      const sanitizedTempOutputPath = tempOutputPath.replace(/\\/g, '/');
+      // Convert paths to WSL format
+      const wslBinaryPath = toWslPath(binaryPath);
+      const wslInputImagePath = toWslPath(filePath);
+      const wslTempOutputPath = toWslPath(tempOutputPath);
 
-      // Prepare arguments
-      const args = [];
+      // Prepare arguments array for the WSL command
+      const args = [wslBinaryPath];
       if (stegoKey) {
         args.push('-k', stegoKey);
       }
-      args.push('-r', sanitizedPath, sanitizedTempOutputPath);
+      args.push('-r', wslInputImagePath, wslTempOutputPath);
 
-      console.log(`Executing OutGuess: ${binaryPath} ${args.join(' ')} (CWD: ${binDirPath})`);
+      console.log(`Executing WSL OutGuess: wsl ${args.join(' ')}`);
 
-      execFile(binaryPath, args, { cwd: binDirPath }, (error, stdout, stderr) => {
+      execFile('wsl', args, (error, stdout, stderr) => {
         let extractedData = '';
         let fileReadError = null;
 
@@ -585,12 +592,16 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
           fileReadError = e;
         }
 
+        const cleanedStderr = stderr ? stderr.toString().trim() : '';
+        const cleanedStdout = stdout ? stdout.toString().trim() : '';
+
         if (error) {
-          console.error('OutGuess execution failed:', error, stderr);
-          const errorMsg = stderr ? stderr.toString().trim() : error.message;
+          console.error('OutGuess WSL execution failed:', error, cleanedStderr);
+          // Standardize common error messages and return
+          const errorMsg = cleanedStderr || error.message;
           return resolve({
             success: false,
-            error: `OutGuess failed: ${errorMsg}`
+            error: errorMsg
           });
         }
 
@@ -601,11 +612,24 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
           });
         }
 
+        // Outguess might exit with 0 even when it fails to extract (e.g. wrong key)
+        if (cleanedStderr && (
+          cleanedStderr.includes('datalen is too long') ||
+          cleanedStderr.includes('not a stego file') ||
+          cleanedStderr.includes('missing') ||
+          cleanedStderr.includes('corrupt')
+        )) {
+          return resolve({
+            success: false,
+            error: cleanedStderr
+          });
+        }
+
         resolve({
           success: true,
           data: extractedData,
-          stdout: stdout,
-          stderr: stderr
+          stdout: cleanedStdout,
+          stderr: cleanedStderr
         });
       });
     } catch (err) {
