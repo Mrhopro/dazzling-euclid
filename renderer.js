@@ -2820,6 +2820,12 @@
           outguessTerminal.className = 'h-32 overflow-y-auto font-mono text-xs text-cyberGreen/90 whitespace-pre-wrap select-text';
           
           let terminalOutput = '';
+          if (result.saveError) {
+            terminalOutput += `[WARNING]: Payload extracted, but failed to write report file:\n -> ${result.finalTxtPath}\n -> Error: ${result.saveError}\n\n`;
+          } else if (result.finalTxtPath) {
+            terminalOutput += `SUCCESS: Extracted payload permanently saved to: ${result.finalTxtPath}\n\n`;
+          }
+
           if (result.stderr) {
             terminalOutput += `[WSL Process Log (stderr)]:\n${result.stderr}\n\n`;
           }
@@ -2838,6 +2844,152 @@
         outguessTerminal.textContent = `OutGuess WSL bridge failed:\n${err.message}`;
       }
     });
+
+    // ==========================================
+    // BOOK CIPHER DECODER MODULE
+    // ==========================================
+    const bookCipherKeyEl = document.getElementById('book-cipher-key');
+    const bookCipherCoordsEl = document.getElementById('book-cipher-coords');
+    const bookCipherStrategyEl = document.getElementById('book-cipher-strategy');
+    const bookCipherIndexBaseEl = document.getElementById('book-cipher-index-base');
+    const bookCipherDecryptBtn = document.getElementById('book-cipher-decrypt-btn');
+    const bookCipherOutputEl = document.getElementById('book-cipher-output');
+
+    if (bookCipherDecryptBtn) {
+      bookCipherDecryptBtn.addEventListener('click', () => {
+        // Reset styles and error notifications
+        bookCipherCoordsEl.classList.remove('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+        bookCipherOutputEl.value = '';
+
+        const keyText = bookCipherKeyEl.value;
+        const coordsText = bookCipherCoordsEl.value.trim();
+        const strategy = bookCipherStrategyEl.value;
+        const indexBase = parseInt(bookCipherIndexBaseEl.value, 10);
+
+        if (!keyText) {
+          bookCipherOutputEl.value = 'ERROR: Key Text / Codebook is empty. Please provide reference text first.';
+          return;
+        }
+        if (!coordsText) {
+          bookCipherOutputEl.value = 'ERROR: Ciphertext Coordinates are empty. Please enter coordinates (e.g. 1:2:3).';
+          return;
+        }
+
+        const lines = keyText.split(/\r?\n/);
+        const tokens = coordsText.split(/\s+/).filter(Boolean);
+        const decryptedParts = [];
+        let formatError = false;
+
+        for (const token of tokens) {
+          // Extract numbers split by colon, hyphen, comma, or slash
+          const parts = token.split(/[:\-\/,]/).map(x => parseInt(x.trim(), 10));
+
+          if (parts.some(isNaN) || parts.length === 0) {
+            formatError = true;
+            decryptedParts.push('[?]');
+            continue;
+          }
+
+          if (strategy === 'line-word') {
+            if (parts.length < 2) {
+              formatError = true;
+              decryptedParts.push('[?]');
+              continue;
+            }
+            const lineNum = parts[0];
+            const wordNum = parts[1];
+
+            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+            const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
+
+            if (lineIdx < 0 || lineIdx >= lines.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
+            if (wordIdx < 0 || wordIdx >= words.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            decryptedParts.push(words[wordIdx]);
+
+          } else if (strategy === 'line-char') {
+            if (parts.length < 2) {
+              formatError = true;
+              decryptedParts.push('[?]');
+              continue;
+            }
+            const lineNum = parts[0];
+            const charNum = parts[1];
+
+            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+            const charIdx = indexBase === 1 ? charNum - 1 : charNum;
+
+            if (lineIdx < 0 || lineIdx >= lines.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            const line = lines[lineIdx];
+            if (charIdx < 0 || charIdx >= line.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            decryptedParts.push(line[charIdx]);
+
+          } else if (strategy === 'line-word-char') {
+            if (parts.length < 3) {
+              formatError = true;
+              decryptedParts.push('[?]');
+              continue;
+            }
+            const lineNum = parts[0];
+            const wordNum = parts[1];
+            const charNum = parts[2];
+
+            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+            const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
+            const charIdx = indexBase === 1 ? charNum - 1 : charNum;
+
+            if (lineIdx < 0 || lineIdx >= lines.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
+            if (wordIdx < 0 || wordIdx >= words.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            const word = words[wordIdx];
+            if (charIdx < 0 || charIdx >= word.length) {
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            decryptedParts.push(word[charIdx]);
+          }
+        }
+
+        let result = '';
+        if (strategy === 'line-word') {
+          result = decryptedParts.join(' ');
+        } else {
+          result = decryptedParts.join('');
+        }
+
+        if (formatError) {
+          bookCipherCoordsEl.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+          bookCipherOutputEl.value = `WARNING: Invalid coordinate formatting detected.\nEnsure all tokens contain the required numbers for the strategy.\n\nPartial decryption:\n${result}`;
+        } else {
+          bookCipherOutputEl.value = result;
+        }
+      });
+    }
 
     // ==========================================
     // GLOBAL UTILITIES (CLIPBOARD COPY)

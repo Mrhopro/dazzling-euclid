@@ -582,10 +582,27 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
       execFile('wsl', args, (error, stdout, stderr) => {
         let extractedData = '';
         let fileReadError = null;
+        let finalTxtPath = '';
+        let saveError = null;
 
         try {
           if (fs.existsSync(tempOutputPath)) {
             extractedData = fs.readFileSync(tempOutputPath, 'utf8');
+
+            // Dynamically determine the destination path for the permanent report
+            const dirName = path.dirname(filePath);
+            const extName = path.extname(filePath);
+            const baseName = path.basename(filePath, extName);
+            finalTxtPath = path.join(dirName, `${baseName}_extracted.txt`);
+
+            // Try to write the permanent file containing the decrypted payload
+            try {
+              fs.writeFileSync(finalTxtPath, extractedData, 'utf8');
+            } catch (writeErr) {
+              console.error('Failed to write permanent report:', writeErr);
+              saveError = writeErr.message;
+            }
+
             fs.unlinkSync(tempOutputPath);
           }
         } catch (e) {
@@ -629,7 +646,9 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
           success: true,
           data: extractedData,
           stdout: cleanedStdout,
-          stderr: cleanedStderr
+          stderr: cleanedStderr,
+          finalTxtPath: finalTxtPath,
+          saveError: saveError
         });
       });
     } catch (err) {
