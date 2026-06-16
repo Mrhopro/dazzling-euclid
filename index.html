@@ -1446,9 +1446,25 @@
           <!-- Left side: Inputs & Controls (span 2) -->
           <div class="lg:col-span-2 space-y-6">
             <div class="bg-cyberPanel border border-cyberBorder p-6 rounded-lg space-y-4 shadow-[0_0_15px_rgba(0,240,255,0.02)]">
-              <div class="flex flex-col gap-2">
-                <label for="book-cipher-key" class="text-xs uppercase font-mono tracking-wider text-slate-400">Key Text / Codebook</label>
-                <textarea id="book-cipher-key" rows="12" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan transition-all" placeholder="Paste the reference book, poem, or Liber Primus text here..."></textarea>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-2">
+                  <label for="book-cipher-key" class="text-xs uppercase font-mono tracking-wider text-slate-400">Key Text / Codebook</label>
+                  <textarea id="book-cipher-key" rows="12" class="w-full bg-[#0c101b] border border-cyberBorder text-slate-100 placeholder-slate-600 rounded p-4 font-mono text-sm focus:outline-none focus:border-cyberCyan transition-all" placeholder="Paste the reference book, poem, or Liber Primus text here..."></textarea>
+                </div>
+                
+                <div class="flex flex-col gap-2">
+                  <span class="text-xs uppercase font-mono tracking-wider text-slate-400">PDF Reference Book Upload</span>
+                  <label id="book-pdf-dropzone" for="book-pdf-input" class="block border border-dashed border-cyberBorder hover:border-cyberCyan/60 bg-[#0c101b] rounded-lg p-5 text-center cursor-pointer transition relative h-full flex flex-col items-center justify-center min-h-[220px] focus:outline-none">
+                    <input type="file" id="book-pdf-input" class="hidden" accept="application/pdf">
+                    <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                      <svg class="w-8 h-8 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                      <p class="text-[10px] font-mono text-slate-300 pointer-events-none">DRAG & DROP REFERENCE PDF</p>
+                      <div id="book-pdf-status" class="text-[9px] uppercase font-mono text-slate-500 mt-1 pointer-events-none max-w-[180px] break-all text-center">
+                        No PDF loaded
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div class="flex flex-col gap-2">

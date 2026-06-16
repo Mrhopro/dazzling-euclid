@@ -2854,6 +2854,80 @@
     const bookCipherIndexBaseEl = document.getElementById('book-cipher-index-base');
     const bookCipherDecryptBtn = document.getElementById('book-cipher-decrypt-btn');
     const bookCipherOutputEl = document.getElementById('book-cipher-output');
+    const bookPdfDropzone = document.getElementById('book-pdf-dropzone');
+    const bookPdfInput = document.getElementById('book-pdf-input');
+    const bookPdfStatus = document.getElementById('book-pdf-status');
+
+    if (bookPdfDropzone && bookPdfInput) {
+      // Drag-and-drop hover state highlights
+      ['dragenter', 'dragover'].forEach(eventName => {
+        bookPdfDropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          bookPdfDropzone.classList.remove('border-cyberBorder');
+          bookPdfDropzone.classList.add('border-cyberCyan', 'shadow-[0_0_10px_#00f0ff]');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        bookPdfDropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          bookPdfDropzone.classList.add('border-cyberBorder');
+          bookPdfDropzone.classList.remove('border-cyberCyan', 'shadow-[0_0_10px_#00f0ff]');
+        }, false);
+      });
+
+      bookPdfDropzone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file) handleBookPdfFile(file);
+      });
+
+      bookPdfInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleBookPdfFile(file);
+      });
+
+      async function handleBookPdfFile(file) {
+        // Reset warnings and errors
+        bookPdfDropzone.classList.remove('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+        bookCipherOutputEl.value = '';
+
+        const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+        if (!isPdf) {
+          bookPdfStatus.textContent = 'ERROR: Only PDF books are supported.';
+          bookPdfStatus.className = 'text-[9px] uppercase font-mono text-red-500 mt-1 pointer-events-none text-center';
+          bookPdfDropzone.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+          return;
+        }
+
+        // Show loading state
+        bookPdfStatus.textContent = 'EXTRACTING TEXT...';
+        bookPdfStatus.className = 'text-[9px] uppercase font-mono text-cyberCyan mt-1 pointer-events-none text-center animate-pulse';
+
+        try {
+          const result = await window.api.extractPdfText(file.path);
+          if (result.success) {
+            bookCipherKeyEl.value = result.text;
+            bookPdfStatus.textContent = `LOADED: ${file.name}`;
+            bookPdfStatus.className = 'text-[9px] uppercase font-mono text-cyberGreen mt-1 pointer-events-none text-center break-all max-w-[180px]';
+            
+            // Temporary confirmation highlight on text area
+            bookCipherKeyEl.classList.add('border-cyberGreen', 'shadow-[0_0_10px_#39ff14]');
+            setTimeout(() => {
+              bookCipherKeyEl.classList.remove('border-cyberGreen', 'shadow-[0_0_10px_#39ff14]');
+            }, 1000);
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (err) {
+          bookPdfStatus.textContent = 'EXTRACTION FAILED';
+          bookPdfStatus.className = 'text-[9px] uppercase font-mono text-red-500 mt-1 pointer-events-none text-center';
+          bookPdfDropzone.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+          bookCipherOutputEl.value = `ERROR: PDF text extraction failed:\n${err.message}`;
+        }
+      }
+    }
 
     if (bookCipherDecryptBtn) {
       bookCipherDecryptBtn.addEventListener('click', () => {

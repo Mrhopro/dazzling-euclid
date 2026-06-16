@@ -4,6 +4,23 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const os = require('os');
+// Resilient wrapper for pdf-parse (handles both standard function export and class-based exports)
+let pdfParseFn;
+try {
+  const pdfModule = require('pdf-parse');
+  if (typeof pdfModule === 'function') {
+    pdfParseFn = pdfModule;
+  } else if (pdfModule && typeof pdfModule.PDFParse === 'function') {
+    pdfParseFn = async (dataBuffer) => {
+      const parser = new pdfModule.PDFParse({ data: dataBuffer });
+      return await parser.getText();
+    };
+  } else {
+    console.error('pdf-parse module format not recognized.');
+  }
+} catch (err) {
+  console.error('Failed to require pdf-parse module:', err);
+}
 
 let mainWindow;
 
@@ -658,4 +675,25 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
       });
     }
   });
+});
+
+// ==========================================
+// 6. BOOK CIPHER PDF EXTRACTOR BACKEND
+// ==========================================
+
+ipcMain.handle('extract-pdf-text', async (event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'Target PDF file does not exist.' };
+    }
+    if (!pdfParseFn) {
+      return { success: false, error: 'PDF extraction library not initialized.' };
+    }
+    const dataBuffer = fs.readFileSync(filePath);
+    const data = await pdfParseFn(dataBuffer);
+    return { success: true, text: data.text };
+  } catch (err) {
+    console.error('PDF extraction failed:', err);
+    return { success: false, error: err.message || 'Failed to parse PDF.' };
+  }
 });
