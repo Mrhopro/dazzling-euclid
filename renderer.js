@@ -3066,6 +3066,135 @@
     }
 
     // ==========================================
+    // ALPHABET ROTATION DECODER MODULE
+    // ==========================================
+    const rotationInputEl = document.getElementById('rotation-input');
+    const rotationAlphabetEl = document.getElementById('rotation-alphabet');
+    const rotationShiftEl = document.getElementById('rotation-shift');
+    const rotationShiftSliderEl = document.getElementById('rotation-shift-slider');
+    const rotationShiftLabelEl = document.getElementById('rotation-shift-label');
+    const rotationApplyBtn = document.getElementById('rotation-apply-btn');
+    const rotationBruteBtn = document.getElementById('rotation-brute-btn');
+    const rotationOutputEl = document.getElementById('rotation-output');
+
+    if (rotationAlphabetEl && rotationShiftEl && rotationShiftSliderEl) {
+      // Helper function to update bounds dynamically
+      function updateRotationBounds() {
+        const mode = rotationAlphabetEl.value;
+        const maxVal = mode === 'english' ? 25 : 32;
+        
+        rotationShiftEl.max = maxVal;
+        rotationShiftSliderEl.max = maxVal;
+        rotationShiftLabelEl.textContent = `Shift Value (0-${maxVal})`;
+
+        // Clamp values if they exceed
+        let val = parseInt(rotationShiftEl.value, 10) || 0;
+        if (val > maxVal) {
+          rotationShiftEl.value = maxVal;
+          rotationShiftSliderEl.value = maxVal;
+        }
+      }
+
+      rotationAlphabetEl.addEventListener('change', updateRotationBounds);
+
+      // Bidirectional sync between slider and input number
+      rotationShiftEl.addEventListener('input', () => {
+        const maxVal = rotationAlphabetEl.value === 'english' ? 25 : 32;
+        let val = parseInt(rotationShiftEl.value, 10);
+        if (isNaN(val)) val = 0;
+        if (val < 0) val = 0;
+        if (val > maxVal) val = maxVal;
+        rotationShiftSliderEl.value = val;
+      });
+
+      rotationShiftEl.addEventListener('blur', () => {
+        const maxVal = rotationAlphabetEl.value === 'english' ? 25 : 32;
+        let val = parseInt(rotationShiftEl.value, 10);
+        if (isNaN(val) || val < 0) val = 0;
+        if (val > maxVal) val = maxVal;
+        rotationShiftEl.value = val;
+        rotationShiftSliderEl.value = val;
+      });
+
+      rotationShiftSliderEl.addEventListener('input', (e) => {
+        rotationShiftEl.value = e.target.value;
+      });
+    }
+
+    // Mathematical rotation function (preserves casing and ignores punctuation/spaces/numbers)
+    function shiftRotationChar(char, shiftValue, alphabetMode) {
+      const alphabet = CAESAR_ALPHABETS[alphabetMode];
+      if (!alphabet) return char;
+
+      const upper = alphabet.upper;
+      const lower = alphabet.lower;
+      const len = upper.length;
+
+      // Normalize shift to be positive and within [0, len)
+      const shift = ((shiftValue % len) + len) % len;
+
+      const upIdx = upper.indexOf(char);
+      if (upIdx !== -1) {
+        return upper[(upIdx + shift) % len];
+      }
+
+      const lowIdx = lower.indexOf(char);
+      if (lowIdx !== -1) {
+        return lower[(lowIdx + shift) % len];
+      }
+
+      return char;
+    }
+
+    if (rotationApplyBtn) {
+      rotationApplyBtn.addEventListener('click', () => {
+        // Reset warning borders
+        rotationInputEl.classList.remove('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+        rotationOutputEl.value = '';
+
+        const text = rotationInputEl.value;
+        if (!text) {
+          rotationInputEl.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+          rotationOutputEl.value = 'ERROR: Ciphertext input is empty.';
+          return;
+        }
+
+        const alphabetMode = rotationAlphabetEl.value;
+        const shiftVal = parseInt(rotationShiftEl.value, 10) || 0;
+
+        // Decryption shift shifts BACKWARD by shiftVal
+        const decrypted = text.split('').map(char => shiftRotationChar(char, -shiftVal, alphabetMode)).join('');
+        rotationOutputEl.value = decrypted;
+      });
+    }
+
+    if (rotationBruteBtn) {
+      rotationBruteBtn.addEventListener('click', () => {
+        rotationInputEl.classList.remove('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+        rotationOutputEl.value = '';
+
+        const text = rotationInputEl.value;
+        if (!text) {
+          rotationInputEl.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+          rotationOutputEl.value = 'ERROR: Ciphertext input is empty.';
+          return;
+        }
+
+        const alphabetMode = rotationAlphabetEl.value;
+        const alphabet = CAESAR_ALPHABETS[alphabetMode];
+        const len = alphabet.upper.length;
+        let output = '';
+
+        for (let s = 0; s < len; s++) {
+          const decrypted = text.split('').map(char => shiftRotationChar(char, -s, alphabetMode)).join('');
+          output += `[Shift +${s}]: ${decrypted}\n`;
+        }
+
+        rotationOutputEl.value = output;
+      });
+    }
+
+    // ==========================================
     // GLOBAL UTILITIES (CLIPBOARD COPY)
     // ==========================================
     document.querySelectorAll('.copy-btn').forEach(btn => {
