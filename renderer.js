@@ -846,23 +846,40 @@
       const maxShift = getCaesarMaxShift();
 
       const title = document.getElementById('caesar-brute-title');
-      if (title) {
-        title.textContent = `ALL ${maxShift} SHIFTS`;
-      }
+      const origTitle = title ? title.textContent : `ALL ${maxShift} SHIFTS`;
+      
+      caesarBruteBtn.disabled = true;
+      caesarBruteBtn.textContent = 'WORKING...';
 
-      for (let s = 1; s <= maxShift; s++) {
-        let dec = runCaesar(text, s, 'decrypt', mode, caesarShiftDirection);
-        let item = document.createElement('div');
-        item.className = "border border-cyberBorder hover:border-cyberMagenta/40 bg-[#0c101b] p-2.5 rounded flex flex-col gap-1.5 transition";
-        item.innerHTML = `
-          <div class="flex justify-between items-center border-b border-cyberBorder/50 pb-1">
-            <span class="text-cyberMagenta font-bold uppercase tracking-wider text-[10px]">Shift -${s}</span>
-            <button onclick="applyCaesarShift(${s})" class="text-[9px] font-bold text-cyberCyan hover:underline">APPLY</button>
-          </div>
-          <div class="break-all whitespace-pre-wrap line-clamp-2 text-slate-300 font-mono text-[11px]">${escapeHTML(dec)}</div>
-        `;
-        caesarBruteList.appendChild(item);
+      let s = 1;
+      const chunkSize = 5;
+
+      function processCaesarChunk() {
+        const end = Math.min(s + chunkSize, maxShift + 1);
+        for (; s < end; s++) {
+          let dec = runCaesar(text, s, 'decrypt', mode, caesarShiftDirection);
+          let item = document.createElement('div');
+          item.className = "border border-cyberBorder hover:border-cyberMagenta/40 bg-[#0c101b] p-2.5 rounded flex flex-col gap-1.5 transition";
+          item.innerHTML = `
+            <div class="flex justify-between items-center border-b border-cyberBorder/50 pb-1">
+              <span class="text-cyberMagenta font-bold uppercase tracking-wider text-[10px]">Shift -${s}</span>
+              <button onclick="applyCaesarShift(${s})" class="text-[9px] font-bold text-cyberCyan hover:underline">APPLY</button>
+            </div>
+            <div class="break-all whitespace-pre-wrap line-clamp-2 text-slate-300 font-mono text-[11px]">${escapeHTML(dec)}</div>
+          `;
+          caesarBruteList.appendChild(item);
+        }
+
+        if (s <= maxShift) {
+          if (title) title.textContent = `PROCESSING ${s}/${maxShift}...`;
+          setTimeout(processCaesarChunk, 5);
+        } else {
+          if (title) title.textContent = `ALL ${maxShift} SHIFTS`;
+          caesarBruteBtn.disabled = false;
+          caesarBruteBtn.textContent = 'REFRESH';
+        }
       }
+      processCaesarChunk();
     }
 
     function applyCaesarShift(shift) {
@@ -2954,114 +2971,133 @@
         const decryptedParts = [];
         let formatError = false;
 
-        for (const token of tokens) {
-          // Extract numbers split by colon, hyphen, comma, or slash
-          const parts = token.split(/[:\-\/,]/).map(x => parseInt(x.trim(), 10));
+        bookCipherOutputEl.value = 'Decoding... Please wait.';
+        bookCipherDecryptBtn.disabled = true;
+        bookCipherDecryptBtn.textContent = 'DECODING...';
 
-          if (parts.some(isNaN) || parts.length === 0) {
-            formatError = true;
-            decryptedParts.push('[?]');
-            continue;
+        let tIndex = 0;
+        const chunkSize = 500;
+
+        function processTokensChunk() {
+          const end = Math.min(tIndex + chunkSize, tokens.length);
+          for (; tIndex < end; tIndex++) {
+            const token = tokens[tIndex];
+            // Extract numbers split by colon, hyphen, comma, or slash
+            const parts = token.split(/[:\-\/,]/).map(x => parseInt(x.trim(), 10));
+
+            if (parts.some(isNaN) || parts.length === 0) {
+              formatError = true;
+              decryptedParts.push('[?]');
+              continue;
+            }
+
+            if (strategy === 'line-word') {
+              if (parts.length < 2) {
+                formatError = true;
+                decryptedParts.push('[?]');
+                continue;
+              }
+              const lineNum = parts[0];
+              const wordNum = parts[1];
+
+              const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+              const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
+
+              if (lineIdx < 0 || lineIdx >= lines.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
+              if (wordIdx < 0 || wordIdx >= words.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              decryptedParts.push(words[wordIdx]);
+
+            } else if (strategy === 'line-char') {
+              if (parts.length < 2) {
+                formatError = true;
+                decryptedParts.push('[?]');
+                continue;
+              }
+              const lineNum = parts[0];
+              const charNum = parts[1];
+
+              const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+              const charIdx = indexBase === 1 ? charNum - 1 : charNum;
+
+              if (lineIdx < 0 || lineIdx >= lines.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              const line = lines[lineIdx];
+              if (charIdx < 0 || charIdx >= line.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              decryptedParts.push(line[charIdx]);
+
+            } else if (strategy === 'line-word-char') {
+              if (parts.length < 3) {
+                formatError = true;
+                decryptedParts.push('[?]');
+                continue;
+              }
+              const lineNum = parts[0];
+              const wordNum = parts[1];
+              const charNum = parts[2];
+
+              const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
+              const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
+              const charIdx = indexBase === 1 ? charNum - 1 : charNum;
+
+              if (lineIdx < 0 || lineIdx >= lines.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
+              if (wordIdx < 0 || wordIdx >= words.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              const word = words[wordIdx];
+              if (charIdx < 0 || charIdx >= word.length) {
+                decryptedParts.push('[?]');
+                continue;
+              }
+
+              decryptedParts.push(word[charIdx]);
+            }
           }
 
-          if (strategy === 'line-word') {
-            if (parts.length < 2) {
-              formatError = true;
-              decryptedParts.push('[?]');
-              continue;
-            }
-            const lineNum = parts[0];
-            const wordNum = parts[1];
-
-            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
-            const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
-
-            if (lineIdx < 0 || lineIdx >= lines.length) {
-              decryptedParts.push('[?]');
-              continue;
+          if (tIndex < tokens.length) {
+            bookCipherOutputEl.value = `Decoding... (${Math.round((tIndex / tokens.length) * 100)}%)`;
+            setTimeout(processTokensChunk, 5);
+          } else {
+            let result = '';
+            if (strategy === 'line-word') {
+              result = decryptedParts.join(' ');
+            } else {
+              result = decryptedParts.join('');
             }
 
-            const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
-            if (wordIdx < 0 || wordIdx >= words.length) {
-              decryptedParts.push('[?]');
-              continue;
+            if (formatError) {
+              bookCipherCoordsEl.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
+              bookCipherOutputEl.value = `WARNING: Invalid coordinate formatting detected.\nEnsure all tokens contain the required numbers for the strategy.\n\nPartial decryption:\n${result}`;
+            } else {
+              bookCipherOutputEl.value = result;
             }
-
-            decryptedParts.push(words[wordIdx]);
-
-          } else if (strategy === 'line-char') {
-            if (parts.length < 2) {
-              formatError = true;
-              decryptedParts.push('[?]');
-              continue;
-            }
-            const lineNum = parts[0];
-            const charNum = parts[1];
-
-            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
-            const charIdx = indexBase === 1 ? charNum - 1 : charNum;
-
-            if (lineIdx < 0 || lineIdx >= lines.length) {
-              decryptedParts.push('[?]');
-              continue;
-            }
-
-            const line = lines[lineIdx];
-            if (charIdx < 0 || charIdx >= line.length) {
-              decryptedParts.push('[?]');
-              continue;
-            }
-
-            decryptedParts.push(line[charIdx]);
-
-          } else if (strategy === 'line-word-char') {
-            if (parts.length < 3) {
-              formatError = true;
-              decryptedParts.push('[?]');
-              continue;
-            }
-            const lineNum = parts[0];
-            const wordNum = parts[1];
-            const charNum = parts[2];
-
-            const lineIdx = indexBase === 1 ? lineNum - 1 : lineNum;
-            const wordIdx = indexBase === 1 ? wordNum - 1 : wordNum;
-            const charIdx = indexBase === 1 ? charNum - 1 : charNum;
-
-            if (lineIdx < 0 || lineIdx >= lines.length) {
-              decryptedParts.push('[?]');
-              continue;
-            }
-
-            const words = lines[lineIdx].trim().split(/\s+/).filter(Boolean);
-            if (wordIdx < 0 || wordIdx >= words.length) {
-              decryptedParts.push('[?]');
-              continue;
-            }
-
-            const word = words[wordIdx];
-            if (charIdx < 0 || charIdx >= word.length) {
-              decryptedParts.push('[?]');
-              continue;
-            }
-
-            decryptedParts.push(word[charIdx]);
+            bookCipherDecryptBtn.disabled = false;
+            bookCipherDecryptBtn.textContent = 'Decrypt Book Cipher';
           }
         }
-
-        let result = '';
-        if (strategy === 'line-word') {
-          result = decryptedParts.join(' ');
-        } else {
-          result = decryptedParts.join('');
-        }
-
-        if (formatError) {
-          bookCipherCoordsEl.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
-          bookCipherOutputEl.value = `WARNING: Invalid coordinate formatting detected.\nEnsure all tokens contain the required numbers for the strategy.\n\nPartial decryption:\n${result}`;
-        } else {
-          bookCipherOutputEl.value = result;
-        }
+        processTokensChunk();
       });
     }
 
@@ -3185,12 +3221,27 @@
         const len = alphabet.upper.length;
         let output = '';
 
-        for (let s = 0; s < len; s++) {
-          const decrypted = text.split('').map(char => shiftRotationChar(char, -s, alphabetMode)).join('');
-          output += `[Shift +${s}]: ${decrypted}\n`;
-        }
+        let s = 0;
+        rotationBruteBtn.disabled = true;
+        rotationBruteBtn.textContent = 'PROCESSING...';
+        rotationOutputEl.value = 'Calculating permutations... please wait.';
 
-        rotationOutputEl.value = output;
+        function processRotationChunk() {
+          const end = Math.min(s + 5, len);
+          for (; s < end; s++) {
+            const decrypted = text.split('').map(char => shiftRotationChar(char, -s, alphabetMode)).join('');
+            output += `[Shift +${s}]: ${decrypted}\n`;
+          }
+          if (s < len) {
+            rotationOutputEl.value = `Calculating permutations... ${Math.round((s/len)*100)}%`;
+            setTimeout(processRotationChunk, 5);
+          } else {
+            rotationOutputEl.value = output;
+            rotationBruteBtn.disabled = false;
+            rotationBruteBtn.textContent = 'Brute-Force All Shifts';
+          }
+        }
+        processRotationChunk();
       });
     }
 

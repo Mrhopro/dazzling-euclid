@@ -619,11 +619,17 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
               console.error('Failed to write permanent report:', writeErr);
               saveError = writeErr.message;
             }
-
-            fs.unlinkSync(tempOutputPath);
           }
         } catch (e) {
           fileReadError = e;
+        } finally {
+          if (fs.existsSync(tempOutputPath)) {
+            try {
+              fs.unlinkSync(tempOutputPath);
+            } catch (unlinkErr) {
+              console.error('Failed to delete temporary output file:', unlinkErr);
+            }
+          }
         }
 
         const cleanedStderr = stderr ? stderr.toString().trim() : '';
@@ -689,7 +695,7 @@ ipcMain.handle('extract-pdf-text', async (event, filePath) => {
     if (!pdfParseFn) {
       return { success: false, error: 'PDF extraction library not initialized.' };
     }
-    const dataBuffer = fs.readFileSync(filePath);
+    const dataBuffer = await fs.promises.readFile(filePath);
     const data = await pdfParseFn(dataBuffer);
     return { success: true, text: data.text };
   } catch (err) {
