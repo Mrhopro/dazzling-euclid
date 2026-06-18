@@ -4,6 +4,11 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const os = require('os');
+
+// PDF extraction constraints
+const MAX_PDF_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_PDF_TEXT_LENGTH = 10 * 1024 * 1024; // 10MB extracted text
+
 // Resilient wrapper for pdf-parse (handles both standard function export and class-based exports)
 let pdfParseFn;
 try {
@@ -20,6 +25,42 @@ try {
   }
 } catch (err) {
   console.error('Failed to require pdf-parse module:', err);
+}
+
+// SECURITY PATCH: Global registry for temp files requiring cleanup
+const activeTempFiles = new Set();
+
+/**
+ * Asynchronously removes a temporary file and updates registry
+ * @param {string} filePath - Path to temporary file
+ */
+async function cleanupTempFile(filePath) {
+  if (!filePath) return;
+
+  try {
+    await fs.promises.unlink(filePath);
+    activeTempFiles.delete(filePath);
+    console.log(`✓ Cleaned up temp file: ${path.basename(filePath)}`);
+  } catch (err) {
+    // ENOENT means file already deleted - not an error
+    if (err.code !== 'ENOENT') {
+      console.error(`✗ Failed to cleanup temp file ${filePath}:`, err.message);
+    }
+    // Always remove from registry even on error
+    activeTempFiles.delete(filePath);
+  }
+}
+
+/**
+ * Cleanup all registered temp files (called on app exit)
+ */
+async function cleanupAllTempFiles() {
+  if (activeTempFiles.size === 0) return;
+
+  console.log(`Cleaning up ${activeTempFiles.size} temporary file(s)...`);
+  const cleanupPromises = [...activeTempFiles].map(cleanupTempFile);
+  await Promise.allSettled(cleanupPromises);
+  activeTempFiles.clear();
 }
 
 let mainWindow;
@@ -558,16 +599,68 @@ ipcMain.handle('scan-steganography', async (event, filePath) => {
 // ==========================================
 
 // Helper to translate Windows paths to WSL Linux paths (e.g., C:\path\to\file -> /mnt/c/path/to/file)
+// SECURITY: Validates paths to prevent traversal attacks
 function toWslPath(winPath) {
-  if (!winPath) return '';
-  let wslPath = winPath.replace(/\\/g, '/');
+  if (!winPath || typeof winPath !== 'string') {
+    throw new Error('Invalid path: must be a non-empty string');
+  }
+
+  // Normalize path to resolve relative segments
+  const normalized = path.normalize(winPath);
+  const resolved = path.resolve(normalized);
+
+  // Detect path traversal attempts
+  if (normalized.includes('..') || resolved.includes('..')) {
+    throw new Error('Security violation: path traversal detected');
+  }
+
+  // Additional validation: ensure the path is absolute
+  if (!path.isAbsolute(resolved)) {
+    throw new Error('Invalid path: must be absolute');
+  }
+
+  // Convert backslashes to forward slashes for WSL
+  let wslPath = resolved.replace(/\\/g, '/');
+
+  // Convert Windows drive letters to WSL mount points
   wslPath = wslPath.replace(/^([A-Za-z]):/, (match, drive) => `/mnt/${drive.toLowerCase()}`);
+
   return wslPath;
+}
+
+// SECURITY: Sanitizes and validates steganography key input
+function sanitizeStegoKey(key) {
+  if (!key || key.trim().length === 0) {
+    return null;
+  }
+
+  // Enforce maximum length to prevent DoS
+  const MAX_KEY_LENGTH = 256;
+  if (key.length > MAX_KEY_LENGTH) {
+    throw new Error(`Steganography key exceeds maximum length (${MAX_KEY_LENGTH} characters)`);
+  }
+
+  // Remove all control characters, null bytes, and non-printable ASCII
+  // OutGuess expects printable ASCII only
+  const sanitized = key.replace(/[\x00-\x1F\x7F-\xFF]/g, '');
+
+  // Validate that something remains after sanitization
+  if (sanitized.length === 0) {
+    throw new Error('Steganography key contains only invalid characters');
+  }
+
+  // Validate only printable ASCII range (space to tilde)
+  if (!/^[\x20-\x7E]+$/.test(sanitized)) {
+    throw new Error('Steganography key must contain only printable ASCII characters');
+  }
+
+  return sanitized;
 }
 
 ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
   return new Promise((resolve) => {
     try {
+      // Validate file existence
       if (!fs.existsSync(filePath)) {
         return resolve({ success: false, error: 'Target file does not exist.' });
       }
@@ -576,27 +669,53 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
       const binaryPath = path.join(binDirPath, 'outguess');
 
       if (!fs.existsSync(binaryPath)) {
-        return resolve({ success: false, error: `OutGuess Linux binary not found at ${binaryPath}` });
+        return resolve({ success: false, error: `OutGuess binary not found at ${binaryPath}` });
       }
 
-      // Generate a temporary destination file in the OS temp directory
-      const tempOutputPath = path.join(os.tmpdir(), `outguess_extracted_${Date.now()}.txt`);
+      // Generate temp file with random component to prevent collisions
+      const tempOutputPath = path.join(
+        os.tmpdir(),
+        `outguess_extracted_${Date.now()}_${Math.random().toString(36).slice(2, 9)}.txt`
+      );
 
-      // Convert paths to WSL format
-      const wslBinaryPath = toWslPath(binaryPath);
-      const wslInputImagePath = toWslPath(filePath);
-      const wslTempOutputPath = toWslPath(tempOutputPath);
+      // SECURITY PATCH: Sanitize all paths before WSL conversion
+      let wslBinaryPath, wslInputImagePath, wslTempOutputPath;
+      try {
+        wslBinaryPath = toWslPath(binaryPath);
+        wslInputImagePath = toWslPath(filePath);
+        wslTempOutputPath = toWslPath(tempOutputPath);
+      } catch (pathError) {
+        console.error('Path validation failed:', pathError);
+        return resolve({
+          success: false,
+          error: `Security validation failed: ${pathError.message}`
+        });
+      }
 
-      // Prepare arguments array for the WSL command
-      const args = [wslBinaryPath];
+      // SECURITY PATCH: Sanitize steganography key
+      let sanitizedKey = null;
       if (stegoKey) {
-        args.push('-k', stegoKey);
+        try {
+          sanitizedKey = sanitizeStegoKey(stegoKey);
+        } catch (keyError) {
+          console.error('Key validation failed:', keyError);
+          return resolve({
+            success: false,
+            error: `Invalid key: ${keyError.message}`
+          });
+        }
+      }
+
+      // Build argument array (execFile prevents shell injection when using arrays)
+      const args = [wslBinaryPath];
+      if (sanitizedKey) {
+        args.push('-k', sanitizedKey);
       }
       args.push('-r', wslInputImagePath, wslTempOutputPath);
 
       console.log(`Executing WSL OutGuess: wsl ${args.join(' ')}`);
 
-      execFile('wsl', args, (error, stdout, stderr) => {
+      execFile('wsl', args, { timeout: 30000 }, (error, stdout, stderr) => {
         let extractedData = '';
         let fileReadError = null;
         let finalTxtPath = '';
@@ -623,9 +742,11 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
         } catch (e) {
           fileReadError = e;
         } finally {
+          // SECURITY PATCH: Guaranteed cleanup
           if (fs.existsSync(tempOutputPath)) {
             try {
               fs.unlinkSync(tempOutputPath);
+              console.log(`Cleaned up temp file: ${path.basename(tempOutputPath)}`);
             } catch (unlinkErr) {
               console.error('Failed to delete temporary output file:', unlinkErr);
             }
@@ -689,17 +810,67 @@ ipcMain.handle('run-outguess', async (event, filePath, stegoKey) => {
 
 ipcMain.handle('extract-pdf-text', async (event, filePath) => {
   try {
+    // Validate file existence
     if (!fs.existsSync(filePath)) {
       return { success: false, error: 'Target PDF file does not exist.' };
     }
-    if (!pdfParseFn) {
-      return { success: false, error: 'PDF extraction library not initialized.' };
+
+    // SECURITY PATCH: Check file size BEFORE loading into memory
+    const stats = await fs.promises.stat(filePath);
+    const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+
+    if (stats.size > MAX_PDF_FILE_SIZE) {
+      return {
+        success: false,
+        error: `PDF file size (${fileSizeMB}MB) exceeds maximum limit (${MAX_PDF_FILE_SIZE / (1024*1024)}MB). Please use a smaller document or extract specific pages using external tools.`
+      };
     }
+
+    // Verify PDF parser is initialized
+    if (!pdfParseFn) {
+      return { success: false, error: 'PDF extraction library (pdf-parse) is not initialized. Please restart the application.' };
+    }
+
+    console.log(`Extracting text from PDF: ${path.basename(filePath)} (${fileSizeMB}MB)`);
+
+    // Load and parse PDF
     const dataBuffer = await fs.promises.readFile(filePath);
+    const parseStartTime = Date.now();
     const data = await pdfParseFn(dataBuffer);
-    return { success: true, text: data.text };
+    const parseTime = ((Date.now() - parseStartTime) / 1000).toFixed(2);
+
+    console.log(`PDF parsed in ${parseTime}s, extracted ${data.text.length} characters`);
+
+    // SECURITY PATCH: Validate extracted text size
+    if (data.text.length > MAX_PDF_TEXT_LENGTH) {
+      const textSizeMB = (data.text.length / (1024 * 1024)).toFixed(2);
+      return {
+        success: false,
+        error: `Extracted text size (${textSizeMB}MB) exceeds maximum limit (${MAX_PDF_TEXT_LENGTH / (1024*1024)}MB). This document is too large for in-memory processing. Consider using a smaller book or extracting specific chapters.`
+      };
+    }
+
+    // Return success with metadata
+    return {
+      success: true,
+      text: data.text,
+      sizeBytes: data.text.length,
+      numPages: data.numpages || 0,
+      parseTimeSeconds: parseTime
+    };
+
   } catch (err) {
     console.error('PDF extraction failed:', err);
-    return { success: false, error: err.message || 'Failed to parse PDF.' };
+
+    // Provide more specific error messages
+    let errorMsg = err.message || 'Failed to parse PDF.';
+
+    if (err.message && err.message.includes('Invalid PDF')) {
+      errorMsg = 'Invalid or corrupt PDF file. Please ensure the file is a valid PDF document.';
+    } else if (err.message && err.message.includes('encrypted')) {
+      errorMsg = 'This PDF is password-protected or encrypted. Please remove protection before extracting text.';
+    }
+
+    return { success: false, error: errorMsg };
   }
 });

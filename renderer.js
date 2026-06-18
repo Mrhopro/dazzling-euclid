@@ -2918,30 +2918,53 @@
           return;
         }
 
+        // PERFORMANCE PATCH: Warn about large files BEFORE processing
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        if (file.size > 10 * 1024 * 1024) { // 10MB warning threshold
+          const proceed = confirm(
+            `⚠️ Large File Warning\n\n` +
+            `This PDF is ${fileSizeMB}MB in size. Large files may:\n` +
+            `• Take significant time to process\n` +
+            `• Consume substantial memory\n` +
+            `• Temporarily freeze the interface\n\n` +
+            `Do you want to continue?`
+          );
+          if (!proceed) {
+            bookPdfStatus.textContent = 'EXTRACTION CANCELLED BY USER';
+            bookPdfStatus.className = 'text-[9px] uppercase font-mono text-slate-500 mt-1 pointer-events-none text-center';
+            return;
+          }
+        }
+
         // Show loading state
         bookPdfStatus.textContent = 'EXTRACTING TEXT...';
         bookPdfStatus.className = 'text-[9px] uppercase font-mono text-cyberCyan mt-1 pointer-events-none text-center animate-pulse';
 
         try {
           const result = await window.api.extractPdfText(file.path);
+
           if (result.success) {
             bookCipherKeyEl.value = result.text;
-            bookPdfStatus.textContent = `LOADED: ${file.name}`;
+
+            const textSizeMB = (result.sizeBytes / (1024 * 1024)).toFixed(2);
+            const displayName = file.name.length > 30 ? file.name.slice(0, 27) + '...' : file.name;
+
+            bookPdfStatus.textContent = `✓ LOADED: ${displayName} (${textSizeMB}MB, ${result.numPages} pages)`;
             bookPdfStatus.className = 'text-[9px] uppercase font-mono text-cyberGreen mt-1 pointer-events-none text-center break-all max-w-[180px]';
-            
-            // Temporary confirmation highlight on text area
+
+            // Visual success feedback
             bookCipherKeyEl.classList.add('border-cyberGreen', 'shadow-[0_0_10px_#39ff14]');
             setTimeout(() => {
               bookCipherKeyEl.classList.remove('border-cyberGreen', 'shadow-[0_0_10px_#39ff14]');
-            }, 1000);
+            }, 1200);
           } else {
             throw new Error(result.error);
           }
         } catch (err) {
-          bookPdfStatus.textContent = 'EXTRACTION FAILED';
+          bookPdfStatus.textContent = '✗ EXTRACTION FAILED';
           bookPdfStatus.className = 'text-[9px] uppercase font-mono text-red-500 mt-1 pointer-events-none text-center';
           bookPdfDropzone.classList.add('border-red-500', 'shadow-[0_0_10px_#ef4444]');
-          bookCipherOutputEl.value = `ERROR: PDF text extraction failed:\n${err.message}`;
+          bookCipherOutputEl.value = `ERROR: PDF text extraction failed:\n\n${err.message}`;
         }
       }
     }
